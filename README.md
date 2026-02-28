@@ -179,6 +179,175 @@ Here is exactly how an AI interacts with your vault.
 4. **Red Alerts on Destructive Actions:** Modifying an item logs a blue UI prompt. Deleting an item/folder triggers a native Red Warning Zenity Box to guarantee a human doesn't sleepwalk into approving an AI's destructive hallucination.
    - **Deep Dive:** Read **[05_simulation_destructive_firewall.md](docs/05_simulation_destructive_firewall.md)**.
 
+---
+
+## 🔬 Radical Transparency: The Audit System
+
+> *"We don't tell you the vault is safe. We show you. Every operation. Every error. Every rollback command."*
+
+Every call to `propose_vault_transaction` — whether it succeeds or crashes — **always** writes a structured `.log` file to `~/.bw-blind-proxy/logs/`. No silent failures. No hidden state. Below are the exact formats for all 4 possible outcomes.
+
+### 📄 Case 1: `SUCCESS` — All operations completed cleanly
+
+```
+TRANSACTION ID: d3117e3d-46a4-4835-a5f9-87ce6124e56d
+TIMESTAMP:      2026-02-28T14:12:03.862607
+STATUS:         SUCCESS
+----------------------------------------
+RATIONALE:
+  Renaming GitHub entry and moving Netflix to the Media folder.
+----------------------------------------
+OPERATIONS REQUESTED:
+  [1] Action: rename_item | Target: uuid-github-001
+  [2] Action: move_item   | Target: uuid-netflix-007
+----------------------------------------
+[EXECUTION TRACE]
+  [SUCCESS] -> rename_item on uuid-github-001
+  [SUCCESS] -> move_item on uuid-netflix-007
+----------------------------------------
+END OF LOG
+```
+
+---
+
+### 📄 Case 2: `ROLLBACK_SUCCESS` — One operation crashed, vault fully restored
+
+Op 3 fails. The proxy detects it, runs the LIFO compensating commands in reverse order, restores the vault to its pristine state.
+
+```
+TRANSACTION ID: b5a24dc6-b6c1-4ad4-9096-23d9100b2a9d
+TIMESTAMP:      2026-02-28T14:12:05.872506
+STATUS:         ROLLBACK_SUCCESS
+ERROR:          ExecutionError: bw: Item 'BAD_UUID' not found
+----------------------------------------
+RATIONALE:
+  Renaming 2 items and moving a third to a folder.
+----------------------------------------
+OPERATIONS REQUESTED:
+  [1] Action: rename_item | Target: uuid-github-001
+  [2] Action: rename_item | Target: uuid-netflix-007
+  [3] Action: move_item   | Target: BAD_UUID
+----------------------------------------
+[EXECUTION TRACE]
+  [SUCCESS] -> rename_item on uuid-github-001
+  [SUCCESS] -> rename_item on uuid-netflix-007
+  [CRASHED] -> move_item on BAD_UUID
+----------------------------------------
+[ROLLBACK TRACE]
+  [REVERSED] -> bw edit item uuid-netflix-007 {"name": "Netflix", ...}
+  [REVERSED] -> bw edit item uuid-github-001 {"name": "Github", ...}
+----------------------------------------
+END OF LOG
+```
+
+**Observation:** The LIFO order is respected — Op 2 is undone before Op 1.
+
+---
+
+### 📄 Case 3: `ROLLBACK_FAILED` — Execution crashed AND the rollback also crashed
+
+The worst case. Op 1 succeeded, but the rollback compensating command also failed (e.g., session expired or item deleted externally during the window).
+
+```
+TRANSACTION ID: a9f2c1d8-0001-dead-beef-ff0000000000
+TIMESTAMP:      2026-02-28T14:13:00.000000
+STATUS:         ROLLBACK_FAILED
+ERROR:          ExecutionError: bw: Network error | RollbackError: bw: Session expired
+----------------------------------------
+RATIONALE:
+  Renaming GitHub and moving Netflix in the same batch.
+----------------------------------------
+OPERATIONS REQUESTED:
+  [1] Action: rename_item | Target: uuid-github-001
+  [2] Action: move_item   | Target: uuid-netflix-007
+----------------------------------------
+[EXECUTION TRACE]
+  [SUCCESS] -> rename_item on uuid-github-001
+  [CRASHED] -> move_item on uuid-netflix-007
+----------------------------------------
+[ROLLBACK TRACE]
+  (No rollback commands were executed)
+  [FAILED TO REVERT] -> bw edit item uuid-github-001 {"name": "Github", ...}
+----------------------------------------
+END OF LOG
+```
+
+**Action required:** Read the `[FAILED TO REVERT]` line and re-run the command manually (`bw edit item <id> '<original_json>'`). The log gives you exactly what to type.
+
+---
+
+### 📄 Case 4: `CRASH_RECOVERED_ON_BOOT` — WAL orphan found and executed on startup
+
+The proxy was killed mid-transaction (power cut, `kill -9`). On the next MCP tool call, `check_recovery()` reads the WAL file and auto-executes the pending rollback commands before any new operations.
+
+```
+TRANSACTION ID: e1f2a3b4-boot-wal-recovery-uuid
+TIMESTAMP:      2026-02-28T14:15:00.000000
+STATUS:         CRASH_RECOVERED_ON_BOOT
+----------------------------------------
+RATIONALE:
+  Hard-crash detected upon startup. System auto-recovered via WAL.
+----------------------------------------
+OPERATIONS REQUESTED:
+  (none — crash recovery synthetic entry)
+----------------------------------------
+[EXECUTION TRACE]
+  (No operations were successfully executed)
+----------------------------------------
+END OF LOG
+```
+
+---
+
+### 📦 The WAL File: Your Last Line of Defense
+
+During every transaction execution, the proxy writes a **Write-Ahead Log** to `~/.bw-blind-proxy/wal/pending_transaction.json` **before** each CLI command is executed. The file is deleted once the batch completes (success or clean rollback). If it exists when the proxy starts, it's a crash signal.
+
+**Exact WAL file structure** (`pending_transaction.json`):
+
+```json
+{
+  "transaction_id": "b5a24dc6-b6c1-4ad4-9096-23d9100b2a9d",
+  "timestamp": 1740744725.872,
+  "rollback_commands": [
+    {
+      "cmd": ["bw", "edit", "item", "uuid-netflix-007", "{\"name\": \"Netflix\", \"type\": 1, ...}"]
+    },
+    {
+      "cmd": ["bw", "edit", "item", "uuid-github-001", "{\"name\": \"Github\", \"type\": 1, ...}"]
+    }
+  ]
+}
+```
+
+**The invariant:**  
+`rollback_commands[N]` is the compensating action for the `N`-th successful operation, stored in **append-then-reverse** order (`list.extend(reversed(cmds))`). On recovery, iterating `reversed(rollback_commands)` replays them in perfect LIFO order.
+
+```text
+State Machine: WAL lifecycle
+
+  [TX STARTS]
+       |
+       v
+  write_wal(tx_id, [])          ← empty WAL always exists during a TX
+       |
+       v
+  [OP 1 EXECUTES OK]
+  write_wal(tx_id, [rb_1])     ← WAL updated after each success
+       |
+       v
+  [OP 2 EXECUTES OK]
+  write_wal(tx_id, [rb_2, rb_1])
+       |
+  ...crash? → WAL file persists on disk, proxy auto-recovers on next boot
+       |
+       v
+  [TX COMPLETES]
+  clear_wal()                   ← WAL deleted. Clean slate.
+```
+
+---
+
 ## 🔌 MCP Tools Reference (Inputs & Outputs)
 
 The Proxy exposes exactly **two** tools to the AI Agent. This drastically limits the attack surface while enabling profound orchestration capabilities.
