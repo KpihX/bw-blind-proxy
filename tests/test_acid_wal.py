@@ -53,17 +53,20 @@ def test_logger_writes_safe_flat_files(tmp_path):
         
         file_path = TransactionLogger.log_transaction(tx_id, payload, "SUCCESS", None)
         
-        assert os.path.exists(file_path)
+        assert file_path.endswith(".json")
         with open(file_path, 'r') as f:
-            content = f.read()
+            log_data = json.load(f)
             
-        assert "TRANSACTION ID:" in content
-        assert "Automated Test Logging" in content
-        assert "create_item" in content
-        assert "New Creation" in content
-        assert "delete_folder" in content
-        assert "999" in content
-        assert "SUCCESS" in content
+        assert log_data["transaction_id"] == tx_id
+        assert log_data["rationale"] == "Automated Test Logging"
+        assert log_data["status"] == "SUCCESS"
+        
+        ops = log_data["operations_requested"]
+        assert len(ops) == 2
+        assert ops[0]["action"] == "create_item"
+        assert ops[0]["name"] == "Secret123"
+        assert ops[1]["action"] == "delete_folder"
+        assert ops[1]["target_id"] == "999"
 
 @patch('bw_blind_proxy.transaction.SecureSubprocessWrapper.execute')
 @patch('bw_blind_proxy.transaction.TransactionLogger.log_transaction') # prevent test from writing logs

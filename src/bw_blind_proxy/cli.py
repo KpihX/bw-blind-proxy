@@ -16,7 +16,7 @@ def view_logs(n: int = typer.Option(5, help="Number of latest logs to view")):
         console.print("[yellow]No logs directory found. No transactions have been processed yet.[/yellow]")
         return
         
-    files = [f for f in os.listdir(LOG_DIR) if f.endswith(".log")]
+    files = [f for f in os.listdir(LOG_DIR) if f.endswith(".json")]
     if not files:
         console.print("[yellow]No logs found.[/yellow]")
         return
@@ -37,35 +37,14 @@ def view_logs(n: int = typer.Option(5, help="Number of latest logs to view")):
             
         filepath = os.path.join(LOG_DIR, filename)
         try:
+            import json
             with open(filepath, 'r') as f:
-                lines = f.readlines()
+                log_data = json.load(f)
                 
-            tx_id = ""
-            ts = ""
-            status = ""
-            rationale = []
-            
-            parsing_rationale = False
-            for line in lines:
-                line = line.strip()
-                if line.startswith("TRANSACTION ID:"):
-                    tx_id = line.split(":", 1)[1].strip()
-                elif line.startswith("TIMESTAMP:"):
-                    ts = line.split(":", 1)[1].strip()
-                elif line.startswith("STATUS:"):
-                    status = line.split(":", 1)[1].strip()
-                elif line.startswith("RATIONALE:"):
-                    parsing_rationale = True
-                    continue
-                elif line.startswith("OPERATIONS REQUESTED:"):
-                    parsing_rationale = False
-                    
-                if parsing_rationale and not line.startswith("-") and line:
-                    rationale.append(line)
-                    
-            rat_str = " ".join(rationale).strip()
-            if len(rat_str) > 75:
-                rat_str = rat_str[:72] + "..."
+            tx_id = log_data.get("transaction_id", "")
+            ts = log_data.get("timestamp", "")
+            status = log_data.get("status", "")
+            rat_str = log_data.get("rationale", "")
                 
             stat_color = "green"
             if status == TransactionStatus.CRASH_RECOVERED_ON_BOOT:
@@ -99,7 +78,7 @@ def purge_logs(keep: int = typer.Option(10, help="Number of latest logs to keep"
         console.print("[yellow]No logs directory found. Nothing to purge.[/yellow]")
         return
         
-    files = [f for f in os.listdir(LOG_DIR) if f.endswith(".log")]
+    files = [f for f in os.listdir(LOG_DIR) if f.endswith(".json")]
     if not files:
         console.print("[yellow]No logs found. Nothing to purge.[/yellow]")
         return

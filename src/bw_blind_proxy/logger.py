@@ -41,62 +41,29 @@ class TransactionLogger:
         timestamp_str = now.strftime("%Y-%m-%d_%H-%M-%S")
         status_safe = status.replace(" ", "_").lower()
         
-        filename = f"{timestamp_str}_{transaction_id}_{status_safe}.log"
+        import json
+        
+        filename = f"{timestamp_str}_{transaction_id}_{status_safe}.json"
         filepath = os.path.join(LOG_DIR, filename)
         
-        # Serialize payload cleanly
-        # Because we strictly use Pydantic, the payload NEVER contains passwords by default
-        # But we dump it to have a perfect track of what the AI requested.
-        payload_dump = payload.model_dump()
+        # Build structured JSON dict
+        log_data = {
+            "transaction_id": transaction_id,
+            "timestamp": now.isoformat(),
+            "status": status,
+            "rationale": payload.rationale,
+            "error_message": error_message,
+            "operations_requested": payload.model_dump().get("operations", []),
+            "execution_trace": [msg.lstrip('-> ').strip() for msg in (executed_ops or [])],
+            "failed_execution": failed_op,
+            "rollback_trace": executed_rolled_back_cmds or [],
+            "failed_rollback": failed_rollback_cmd
+        }
         
-        report = []
-        report.append(f"TRANSACTION ID: {transaction_id}")
-        report.append(f"TIMESTAMP:      {now.isoformat()}")
-        report.append(f"STATUS:         {status}")
-        if error_message:
-            report.append(f"ERROR:          {error_message}")
-        report.append("-" * 40)
-        report.append(f"RATIONALE:")
-        report.append(f"  {payload.rationale}")
-        report.append("-" * 40)
-        report.append("OPERATIONS REQUESTED:")
-        
-        for idx, op in enumerate(payload_dump.get("operations", [])):
-            op_action = op.get("action", "unknown")
-            op_target = op.get("target_id", "New Creation")
-            report.append(f"  [{idx+1}] Action: {op_action} | Target: {op_target}")
-            
-        report.append("-" * 40)
-        report.append("[EXECUTION TRACE]")
-        if executed_ops:
-            for msg in executed_ops:
-                # msg usually starts with '-> ' from transaction logic
-                clean_msg = msg.lstrip('-> ').strip()
-                report.append(f"  [SUCCESS] -> {clean_msg}")
-        else:
-            report.append("  (No operations were successfully executed)")
-            
-        if failed_op:
-            f_act = failed_op.get("action", "unknown")
-            f_tgt = failed_op.get("target_id", "New Creation")
-            report.append(f"  [CRASHED] -> {f_act} on {f_tgt}")
-            
-        if status != TransactionStatus.SUCCESS:
-            report.append("-" * 40)
-            report.append("[ROLLBACK TRACE]")
-            if executed_rolled_back_cmds:
-                for r_cmd in executed_rolled_back_cmds:
-                    report.append(f"  [REVERSED] -> {r_cmd}")
-            else:
-                report.append("  (No rollback commands were executed)")
-                
-            if failed_rollback_cmd:
-                report.append(f"  [FAILED TO REVERT] -> {failed_rollback_cmd}")
-                    
-        report.append("-" * 40)
-        report.append("END OF LOG")
+        # Safely remove None values to keep logs minimal
+        log_data = {k: v for k, v in log_data.items() if v is not None}
         
         with open(filepath, 'w', encoding='utf-8') as f:
-            f.write("\n".join(report))
+            json.dump(log_data, f, indent=2)
             
         return filepath
