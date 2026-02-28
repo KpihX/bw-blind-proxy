@@ -1,7 +1,9 @@
 import os
+import json
 import typer
 from rich.console import Console
 from rich.table import Table
+from rich.json import JSON
 
 from .logger import LOG_DIR
 from .wal import WALManager
@@ -37,7 +39,6 @@ def view_logs(n: int = typer.Option(5, help="Number of latest logs to view")):
             
         filepath = os.path.join(LOG_DIR, filename)
         try:
-            import json
             with open(filepath, 'r') as f:
                 log_data = json.load(f)
                 
@@ -61,36 +62,51 @@ def view_logs(n: int = typer.Option(5, help="Number of latest logs to view")):
             
     console.print(table)
 
-@app.command("log", help="View the full details of a specific transaction log by its ID.")
-def view_log(tx_id: str = typer.Argument(..., help="The Transaction ID (or a unique prefix of it)")):
+@app.command("log", help="View the full details of a specific transaction log. Default: shows the most recent log.")
+def view_log(
+    tx_id: str = typer.Argument(None, help="The Transaction ID (or a unique prefix of it)"),
+    n: int = typer.Option(None, "--last", "-n", help="Fetch the N-th most recent log (1 = newest)")
+):
     if not os.path.exists(LOG_DIR):
         console.print("[yellow]No logs directory found.[/yellow]")
         return
         
-    files = [f for f in os.listdir(LOG_DIR) if f.endswith(".json") and tx_id in f]
-    
-    if not files:
-        console.print(f"[red]No log found matching Transaction ID: {tx_id}[/red]")
+    all_files = [f for f in os.listdir(LOG_DIR) if f.endswith(".json")]
+    if not all_files:
+        console.print("[red]No logs found.[/red]")
         return
         
-    if len(files) > 1:
-        console.print(f"[yellow]Multiple logs match '{tx_id}'. Please be more specific.[/yellow]")
-        for f in files:
-            console.print(f"  - {f}")
-        return
+    all_files.sort(reverse=True) # newest first
         
-    filepath = os.path.join(LOG_DIR, files[0])
+    if n is not None:
+        if n < 1 or n > len(all_files):
+            console.print(f"[red]Invalid index '{n}'. Only {len(all_files)} logs available.[/red]")
+            return
+        target_file = all_files[n - 1]
+    elif tx_id is not None:
+        matches = [f for f in all_files if tx_id in f]
+        if not matches:
+            console.print(f"[red]No log found matching Transaction ID: {tx_id}[/red]")
+            return
+        if len(matches) > 1:
+            console.print(f"[yellow]Multiple logs match '{tx_id}'. Please be more specific.[/yellow]")
+            for m in matches:
+                console.print(f"  - {m}")
+            return
+        target_file = matches[0]
+    else:
+        # Default to newest if neither id nor n is provided
+        target_file = all_files[0]
+        
+    filepath = os.path.join(LOG_DIR, target_file)
     try:
-        import json
-        from rich.json import JSON
-        
         with open(filepath, 'r') as f:
             raw_content = f.read()
             
-        console.print(f"[cyan bold]Log File: {files[0]}[/cyan bold]")
+        console.print(f"[cyan bold]Log File: {target_file}[/cyan bold]")
         console.print(JSON(raw_content))
     except Exception as e:
-        console.print(f"[red]Error reading log {files[0]}: {str(e)}[/red]")
+        console.print(f"[red]Error reading log {target_file}: {str(e)}[/red]")
 
 @app.command("wal", help="Inspect the Write-Ahead Log for any stranded transactions.")
 def view_wal():
@@ -99,6 +115,8 @@ def view_wal():
         console.print(f"[red bold]CRITICAL: Uncommitted transaction found in WAL![/red bold]")
         console.print(f"Transaction ID: {data.get('transaction_id')}")
         console.print(f"Pending Rollback Commands stack size: {len(data.get('rollback_commands', []))}")
+        console.print("\n[cyan]Full WAL state:[/cyan]")
+        console.print(JSON(json.dumps(data)))
         console.print("\nThe proxy will automatically resolve this upon the next MCP execution.")
     else:
         console.print("[green]WAL is clean. No stranded transactions. Vault is perfectly synced.[/green]")
