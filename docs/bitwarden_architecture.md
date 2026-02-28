@@ -125,25 +125,4 @@ Through exhaustive CLI validation (`bw --help`, web research), here is the absol
 
 ---
 
-## 7. Project Adjustment (The Final API Coverage)
-To make **BW-Blind-Proxy** exhaustively complete, we must implement these adjustments:
 
-1. **Schema Refactoring (`models.py`)**:
-   - Create `BlindCard` (redacts number, code).
-   - Create `BlindIdentity` (redacts ssn, passport, license).
-   - Create `BlindField` (redacts `value` if target is hidden/linked).
-   - Update `BlindItem` to include `card`, `identity`, `secureNote` and `fields`.
-
-2. **Transaction Refactoring (`models.py` & `transaction.py`)**:
-   - Add action `toggle_favorite` (target_id, boolean).
-   - Add action `edit_item_card` (allows changing expiry date, name).
-   - Add action `edit_item_identity` (allows changing address/email).
-   - Add action `upsert_custom_field` (allows adding/modifying Text/Boolean fields safely without erasing existing hidden fields). 
-
-3. **Phase 4 "The Extreme Edge" (FULLY IMPLEMENTED)**:
-   - Added `ItemAction.RESTORE` (Trash recovery).
-   - Added `ItemAction.DELETE_ATTACHMENT` (Attachment purging).
-   - Added `ItemAction.MOVE_TO_COLLECTION` (Enterprise sharing).
-   - Added `ItemAction.TOGGLE_REPROMPT` (Master Password reprompt flag).
-
-This design guarantees that *every single non-sensitive lever* in Bitwarden is directly, explicitly, and securely accessible by the LLM via Pydantic Enums, while not a single cryptographic or PII secret can ever leak.

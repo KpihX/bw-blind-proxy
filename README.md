@@ -93,6 +93,31 @@ To edit an item, the Python Subprocess grabs the full hidden JSON locally, surgi
 
 ---
 
+## 🏗️ Project Adjustment (The Final API Coverage)
+To make **BW-Blind-Proxy** exhaustively complete, we implemented these historical adjustments:
+
+1. **Schema Refactoring (`models.py`)**:
+   - Created `BlindCard` (redacts number, code).
+   - Created `BlindIdentity` (redacts ssn, passport, license).
+   - Created `BlindField` (redacts `value` if target is hidden/linked).
+   - Updated `BlindItem` to include `card`, `identity`, `secureNote` and `fields`.
+
+2. **Transaction Refactoring (`models.py` & `transaction.py`)**:
+   - Added action `toggle_favorite` (target_id, boolean).
+   - Added action `edit_item_card` (allows changing expiry date, name).
+   - Added action `edit_item_identity` (allows changing address/email).
+   - Added action `upsert_custom_field` (allows adding/modifying Text/Boolean fields safely without erasing existing hidden fields). 
+
+3. **Phase 4 "The Extreme Edge" (FULLY IMPLEMENTED)**:
+   - Added `ItemAction.RESTORE` (Trash recovery).
+   - Added `ItemAction.DELETE_ATTACHMENT` (Attachment purging).
+   - Added `ItemAction.MOVE_TO_COLLECTION` (Enterprise sharing).
+   - Added `ItemAction.TOGGLE_REPROMPT` (Master Password reprompt flag).
+
+This design guarantees that *every single non-sensitive lever* in Bitwarden is directly, explicitly, and securely accessible by the LLM via Pydantic Enums, while not a single cryptographic or PII secret can ever leak.
+
+---
+
 ## 🚀 Installation & Usage
 
 ### Requirements
