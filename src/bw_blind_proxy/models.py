@@ -1,7 +1,7 @@
 from enum import StrEnum
 from typing import List, Optional, Any, Dict, Literal, Union, Annotated
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-from bw_blind_proxy.config import REDACTED_POPULATED, REDACTED_EMPTY
+from bw_blind_proxy.config import REDACTED_POPULATED, REDACTED_EMPTY, MAX_BATCH_SIZE
 
 # -----------------
 # ACTION ENUMERATIONS (CENTRALIZATION)
@@ -401,4 +401,22 @@ class TransactionPayload(BaseModel):
                 "Do not bundle it with other operations."
             )
             
+        return self
+
+    @model_validator(mode='after')
+    def enforce_max_batch_size(self) -> 'TransactionPayload':
+        """
+        Enforce a configurable upper bound on the number of operations per batch.
+        Larger batches extend the race-condition window with external Bitwarden clients,
+        increasing the probability of a FATAL rollback failure if an external edit
+        modifies an item targeted by this transaction in flight.
+        Limit is read from config.yaml → proxy.max_batch_size (default: 10).
+        """
+        if len(self.operations) > MAX_BATCH_SIZE:
+            raise ValueError(
+                f"BATCH TOO LARGE: You submitted {len(self.operations)} operations, "
+                f"but the proxy enforces a maximum of {MAX_BATCH_SIZE} operations per batch "
+                f"(configured via proxy.max_batch_size in config.yaml). "
+                f"Split your request into smaller batches of at most {MAX_BATCH_SIZE} operations each."
+            )
         return self

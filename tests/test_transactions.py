@@ -193,3 +193,38 @@ def test_sanitization_custom_fields():
     item = BlindItem(**raw_item)
     assert item.fields[0].value == "Visible"
     assert item.fields[1].value == REDACTED_POPULATED
+
+
+def test_batch_too_large_rejected():
+    """Ensure that a batch exceeding MAX_BATCH_SIZE is rejected with a clear error."""
+    from bw_blind_proxy.config import MAX_BATCH_SIZE
+    # Build a batch of MAX_BATCH_SIZE + 1 operations (all simple renames)
+    operations = [
+        {"action": "rename_item", "target_id": f"id-{i}", "new_name": f"Item {i}"}
+        for i in range(MAX_BATCH_SIZE + 1)
+    ]
+    raw = {
+        "rationale": "Trying to rename too many items at once",
+        "operations": operations
+    }
+    with pytest.raises(ValidationError) as exc_info:
+        TransactionPayload(**raw)
+    assert "BATCH TOO LARGE" in str(exc_info.value)
+
+
+def test_batch_at_limit_ok():
+    """Ensure that a batch exactly at MAX_BATCH_SIZE passes validation."""
+    from bw_blind_proxy.config import MAX_BATCH_SIZE
+    # Build a batch of exactly MAX_BATCH_SIZE operations
+    operations = [
+        {"action": "rename_item", "target_id": f"id-{i}", "new_name": f"Item {i}"}
+        for i in range(MAX_BATCH_SIZE)
+    ]
+    raw = {
+        "rationale": "Renaming exactly the max number of items",
+        "operations": operations
+    }
+    # Should not raise — exactly at the boundary is allowed
+    payload = TransactionPayload(**raw)
+    assert len(payload.operations) == MAX_BATCH_SIZE
+

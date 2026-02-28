@@ -124,6 +124,13 @@ def propose_vault_transaction(rationale: str, operations: List[Dict[str, Any]]) 
     Only then is the 'bw' CLI executed. If the proxy process is killed mid-flight, 
     the system auto-recovers natively (LIFO rollback) on the next operation!
     
+    [🔢 BATCH LIMIT — MAX 10 OPERATIONS]
+    A single call to this tool MUST NOT exceed 10 operations (configurable via config.yaml → proxy.max_batch_size).
+    Reason: Every operation in a batch extends the time window during which an external Bitwarden client
+    (mobile app, web vault) could modify the same items. The longer the window, the higher the probability
+    that a rollback command will fail with 'Item not found', leaving the vault in an inconsistent state.
+    If you need more than 10 operations, split them into sequential calls to this tool.
+    
     The payload must be a JSON object containing:
       - "rationale": A string explaining why these changes are being made.
       - "operations": A list of operation objects. Each object MUST have an "action" field matching ONE of:

@@ -47,3 +47,6 @@ REDACTED_EMPTY = _config_cache.get("redaction", {}).get("empty_tag", "[REDACTED_
 default_state_dir = "~/.bw-blind-proxy"
 proxy_config = _config_cache.get("proxy", {})
 STATE_DIR = os.path.expanduser(proxy_config.get("state_directory", default_state_dir))
+
+# Maximum operations per batch — configurable to minimize the race-condition window
+MAX_BATCH_SIZE: int = proxy_config.get("max_batch_size", 10)

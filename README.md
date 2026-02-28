@@ -8,6 +8,85 @@ It strongly enforces the **"AI-Blind Management"** philosophy. You can ask an AI
 
 ---
 
+## 🧭 The Philosophy
+
+> **Blind by Design · Zero Trust · Radical Transparency**
+
+This project does not ask for your trust. It is architected so that trust becomes irrelevant.
+
+### I. Blind by Design
+The AI model is **physically incapable** of seeing your secrets. A `Pydantic` model layer (`extra="forbid"` + `force_redact()`) intercepts every byte returned by the Bitwarden CLI before the AI ever sees it. Passwords, TOTPs, CVVs, and SSNs are overwritten with sentinel tags (`[REDACTED_BY_PROXY_POPULATED]`) at the data layer — not by policy or politeness. This is the **Principle of Least Privilege** taken to its logical extreme: *you cannot leak what you cannot read.*
+
+### II. Zero Trust
+The proxy extends zero trust **to everyone**: the AI, the user, and itself. Every proposed batch of operations is:
+1. **Validated by Pydantic** against strict enum schemas before touching any CLI.
+2. **Reviewed by the Human** via a Zenity system popup requiring the Master Password.
+3. **Traced to disk** in a Write-Ahead Log before execution, allowing crash recovery.
+4. **Rolled back automatically** (LIFO) if any step fails, with a full audit trail.
+
+There are no "admin bypass" modes, no `--force` flags, and no silent failures.
+
+### III. Radical Transparency
+We do not sell a dream. We document every architectural decision and **every limitation**. Our logs record not just what succeeded, but what failed, which rollback commands ran, and which one could not. You will always know the exact state of your vault.
+
+**Notable honest limitations we cannot fix in code (but mitigate in design):**
+
+| Limitation                          | Root cause                                     | Our mitigation                                                   |
+| :---------------------------------- | :--------------------------------------------- | :--------------------------------------------------------------- |
+| No atomic `COMMIT`                  | Bitwarden API has no transaction mode          | WAL + LIFO Rollback (Saga Pattern)                               |
+| Race condition window               | External clients can modify vault during batch | Batch size cap of 10 ops (configurable)                          |
+| Session timeout during long batches | `BW_SESSION` can expire server-side            | Short batches, WAL survives crash for auto-recovery on next boot |
+
+→ **Full details:** [docs/LIMITATIONS.md](docs/LIMITATIONS.md)
+
+### Why We Cap Batches at 10 Operations
+
+```text
+SCENARIO: You ask the AI to reorganize 15 items.
+
+[Batch of 15 operations — WITHOUT cap]
+─────────────────────────────────────────────────────
+OP  1: rename "Github" → "GitHub"          ✅ done (live on server)
+OP  2: move "Netflix" to folder "Media"    ✅ done (live on server)
+...
+OP  8: move "Bank-Crédit" to "Finance"     ✅ done (live on server)
+        ~~ You open the Bitwarden iOS app ~~
+        ~~ You delete "Bank-Crédit" (the old name no longer makes sense) ~~
+OP  9: rename "Bank-Crédit" → "Crédit Agricole"  CRASH: "Item not found" ❌
+ROLLBACK TRIGGERED → tries bw edit "Bank-Crédit"  FATAL: Item was deleted externally 💀
+─────────────────────────────────────────────────────
+Result: OPs 1–8 are live. OP 9 failed. Rollback failed. Vault is inconsistent.
+
+[Batch of 10 operations — WITH cap]
+─────────────────────────────────────────────────────
+The race-condition window is reduced by ~33%.
+The probability of an external edit coinciding shrinks proportionally.
+Each batch of ≤10 ops is a smaller, safer, atomic-ish unit of work.
+```
+
+### Why `delete_attachment` Is Always Isolated
+
+```text
+SCENARIO: AI sends a batch with 2 ops — [delete_attachment, rename_item].
+
+  OP 1: delete_attachment "contract.pdf" from Item "Job Contract"   ✅ DONE
+         ⚠️ The file is now GONE. Bitwarden does NOT trash attachments.
+  OP 2: rename_item "Job Contract" → "Old Job Contract"              CRASHES ❌
+
+ROLLBACK:
+  reverse OP 1 → ??? IMPOSSIBLE. The file no longer exists anywhere.
+
+Result: The file is permanently destroyed. The item name was never updated.
+        The user did not intend to delete the attachment—it was collateral damage.
+─────────────────────────────────────────────────────
+OUR GUARD: Pydantic rejects ANY batch containing delete_attachment alongside
+           other operations. The AI is forced to send it alone — guaranteeing
+           no other operation can trigger a rollback that erases irreplaceable data.
+```
+
+---
+
+
 The transparency of this proxy is its greatest strength. Follow the **[Visual Simulation Path](docs/01_simulation_core_protocol.md)** to see every byte in motion.
 
 ### 🎥 The Zero-Trust Interactive Path

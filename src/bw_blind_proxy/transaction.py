@@ -89,7 +89,7 @@ class TransactionManager:
                 msg, rollback_cmds = TransactionManager._execute_single_action(op, session_key)
                 results.append(msg)
                 
-                # Operation succeeded, record it (excluding the rationale)
+                # Operation succeeded, record it (excluding empty fields)
                 executed_ops.append(op.model_dump(exclude_none=True))
                 
                 if rollback_cmds:
