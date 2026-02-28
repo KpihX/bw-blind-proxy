@@ -2,7 +2,7 @@
 
 Ce document explique comment l'IA peut structurer et proposer la création d'un tout nouvel élément, sans jamais connaître ou inscrire les données réelles de sécurité (mots de passe, CVV, numéros de sécurité sociale).
 
-[ ⬅️ 05: Destructive Firewall ](05_simulation_destructive_firewall.md) | [ Finish: README ➡️ ](../README.md)
+[ ⬅️ 05: Destructive Firewall ](05_simulation_destructive_firewall.md) | [ 07: Advanced Search ➡️ ](07_simulation_advanced_search.md)
 
 ---
 
