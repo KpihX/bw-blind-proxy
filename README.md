@@ -185,116 +185,104 @@ Here is exactly how an AI interacts with your vault.
 
 > *"We don't tell you the vault is safe. We show you. Every operation. Every error. Every rollback command."*
 
-Every call to `propose_vault_transaction` — whether it succeeds or crashes — **always** writes a structured `.log` file to `~/.bw-blind-proxy/logs/`. No silent failures. No hidden state. Below are the exact formats for all 4 possible outcomes.
-
 ### 📄 Case 1: `SUCCESS` — All operations completed cleanly
 
-```
-TRANSACTION ID: d3117e3d-46a4-4835-a5f9-87ce6124e56d
-TIMESTAMP:      2026-02-28T14:12:03.862607
-STATUS:         SUCCESS
-----------------------------------------
-RATIONALE:
-  Renaming GitHub entry and moving Netflix to the Media folder.
-----------------------------------------
-OPERATIONS REQUESTED:
-  [1] Action: rename_item | Target: uuid-github-001
-  [2] Action: move_item   | Target: uuid-netflix-007
-----------------------------------------
-[EXECUTION TRACE]
-  [SUCCESS] -> rename_item on uuid-github-001
-  [SUCCESS] -> move_item on uuid-netflix-007
-----------------------------------------
-END OF LOG
+```json
+{
+  "transaction_id": "d3117e3d-46a4-4835-a5f9-87ce6124e56d",
+  "timestamp": "2026-02-28T14:12:03.862607",
+  "status": "SUCCESS",
+  "rationale": "Renaming GitHub entry and moving Netflix to the Media folder.",
+  "operations_requested": [
+    {"action": "rename_item", "target_id": "uuid-github-001", "new_name": "GitHub"},
+    {"action": "move_item",   "target_id": "uuid-netflix-007", "folder_id": "uuid-media"}
+  ],
+  "execution_trace": [
+    "Renamed item uuid-github-001 to 'GitHub'",
+    "Moved item uuid-netflix-007 to folder 'uuid-media'"
+  ]
+}
 ```
 
 ---
 
 ### 📄 Case 2: `ROLLBACK_SUCCESS` — One operation crashed, vault fully restored
 
-Op 3 fails. The proxy detects it, runs the LIFO compensating commands in reverse order, restores the vault to its pristine state.
+Op 3 fails (bad UUID). The proxy detects it, runs `_perform_rollback` in LIFO order, pops each command from the WAL as it succeeds, restores the vault to its pristine state.
 
-```
-TRANSACTION ID: b5a24dc6-b6c1-4ad4-9096-23d9100b2a9d
-TIMESTAMP:      2026-02-28T14:12:05.872506
-STATUS:         ROLLBACK_SUCCESS
-ERROR:          ExecutionError: bw: Item 'BAD_UUID' not found
-----------------------------------------
-RATIONALE:
-  Renaming 2 items and moving a third to a folder.
-----------------------------------------
-OPERATIONS REQUESTED:
-  [1] Action: rename_item | Target: uuid-github-001
-  [2] Action: rename_item | Target: uuid-netflix-007
-  [3] Action: move_item   | Target: BAD_UUID
-----------------------------------------
-[EXECUTION TRACE]
-  [SUCCESS] -> rename_item on uuid-github-001
-  [SUCCESS] -> rename_item on uuid-netflix-007
-  [CRASHED] -> move_item on BAD_UUID
-----------------------------------------
-[ROLLBACK TRACE]
-  [REVERSED] -> bw edit item uuid-netflix-007 {"name": "Netflix", ...}
-  [REVERSED] -> bw edit item uuid-github-001 {"name": "Github", ...}
-----------------------------------------
-END OF LOG
+```json
+{
+  "transaction_id": "b5a24dc6-b6c1-4ad4-9096-23d9100b2a9d",
+  "timestamp": "2026-02-28T14:12:05.872506",
+  "status": "ROLLBACK_SUCCESS",
+  "error_message": "ExecutionError: bw: Item 'BAD_UUID' not found",
+  "rationale": "Renaming 2 items and moving a third to a folder.",
+  "operations_requested": [
+    {"action": "rename_item", "target_id": "uuid-github-001", "new_name": "GitHub"},
+    {"action": "rename_item", "target_id": "uuid-netflix-007", "new_name": "Netflix HD"},
+    {"action": "move_item",   "target_id": "BAD_UUID", "folder_id": "uuid-media"}
+  ],
+  "execution_trace": [
+    "Renamed item uuid-github-001 to 'GitHub'",
+    "Renamed item uuid-netflix-007 to 'Netflix HD'"
+  ],
+  "failed_execution": {"action": "move_item", "target_id": "BAD_UUID"},
+  "rollback_trace": [
+    "bw edit item uuid-netflix-007 {\"name\": \"Netflix\", ...}",
+    "bw edit item uuid-github-001 {\"name\": \"Github\", ...}"
+  ]
+}
 ```
 
-**Observation:** The LIFO order is respected — Op 2 is undone before Op 1.
+**Observation:** The LIFO order is respected — Op 2 is undone before Op 1. The WAL file is consumed (`pop_rollback_command`) as each rollback runs, guaranteeing idempotency even if the proxy crashes *mid-rollback*.
 
 ---
 
 ### 📄 Case 3: `ROLLBACK_FAILED` — Execution crashed AND the rollback also crashed
 
-The worst case. Op 1 succeeded, but the rollback compensating command also failed (e.g., session expired or item deleted externally during the window).
+The worst case. Op 1 succeeded, Op 2 crashed, AND the rollback for Op 1 also failed (e.g., item deleted externally during the window). **The WAL is intentionally NOT cleared**, so the LLM receives a rich diagnostic message and the human can intervene.
 
-```
-TRANSACTION ID: a9f2c1d8-0001-dead-beef-ff0000000000
-TIMESTAMP:      2026-02-28T14:13:00.000000
-STATUS:         ROLLBACK_FAILED
-ERROR:          ExecutionError: bw: Network error | RollbackError: bw: Session expired
-----------------------------------------
-RATIONALE:
-  Renaming GitHub and moving Netflix in the same batch.
-----------------------------------------
-OPERATIONS REQUESTED:
-  [1] Action: rename_item | Target: uuid-github-001
-  [2] Action: move_item   | Target: uuid-netflix-007
-----------------------------------------
-[EXECUTION TRACE]
-  [SUCCESS] -> rename_item on uuid-github-001
-  [CRASHED] -> move_item on uuid-netflix-007
-----------------------------------------
-[ROLLBACK TRACE]
-  (No rollback commands were executed)
-  [FAILED TO REVERT] -> bw edit item uuid-github-001 {"name": "Github", ...}
-----------------------------------------
-END OF LOG
+```json
+{
+  "transaction_id": "a9f2c1d8-0001-dead-beef-ff0000000000",
+  "timestamp": "2026-02-28T14:13:00.000000",
+  "status": "ROLLBACK_FAILED",
+  "error_message": "ExecutionError: bw: Network error | RollbackError: bw: Session expired",
+  "rationale": "Renaming GitHub and moving Netflix in the same batch.",
+  "operations_requested": [
+    {"action": "rename_item", "target_id": "uuid-github-001", "new_name": "GitHub"},
+    {"action": "move_item",   "target_id": "uuid-netflix-007", "folder_id": "uuid-media"}
+  ],
+  "execution_trace": [
+    "Renamed item uuid-github-001 to 'GitHub'"
+  ],
+  "failed_execution": {"action": "move_item", "target_id": "uuid-netflix-007"},
+  "rollback_trace": [],
+  "failed_rollback": "bw edit item uuid-github-001 {\"name\": \"Github\", ...}"
+}
 ```
 
-**Action required:** Read the `[FAILED TO REVERT]` line and re-run the command manually (`bw edit item <id> '<original_json>'`). The log gives you exactly what to type.
+**Action required:** Read the `failed_rollback` field and re-run the command manually (`bw edit item <id> '<original_json>'`). The JSON gives you exactly what to type.
 
 ---
 
 ### 📄 Case 4: `CRASH_RECOVERED_ON_BOOT` — WAL orphan found and executed on startup
 
-The proxy was killed mid-transaction (power cut, `kill -9`). On the next MCP tool call, `check_recovery()` reads the WAL file and auto-executes the pending rollback commands before any new operations.
+The proxy was killed mid-transaction (power cut, `kill -9`). On the next MCP tool call, `check_recovery()` reads the WAL file and calls `_perform_rollback` + `pop_rollback_command` per step before any new operations. Even a crash *during recovery* is safe: the WAL shrinks with every successful step.
 
-```
-TRANSACTION ID: e1f2a3b4-boot-wal-recovery-uuid
-TIMESTAMP:      2026-02-28T14:15:00.000000
-STATUS:         CRASH_RECOVERED_ON_BOOT
-----------------------------------------
-RATIONALE:
-  Hard-crash detected upon startup. System auto-recovered via WAL.
-----------------------------------------
-OPERATIONS REQUESTED:
-  (none — crash recovery synthetic entry)
-----------------------------------------
-[EXECUTION TRACE]
-  (No operations were successfully executed)
-----------------------------------------
-END OF LOG
+```json
+{
+  "transaction_id": "e1f2a3b4-boot-wal-recovery-uuid",
+  "timestamp": "2026-02-28T14:15:00.000000",
+  "status": "CRASH_RECOVERED_ON_BOOT",
+  "rationale": "Hard-crash detected upon startup. System auto-recovered via WAL.",
+  "operations_requested": [],
+  "execution_trace": [],
+  "rollback_trace": [
+    "bw edit item uuid-netflix-007 {\"name\": \"Netflix\", ...}",
+    "bw edit item uuid-github-001 {\"name\": \"Github\", ...}"
+  ]
+}
 ```
 
 ---
@@ -550,28 +538,31 @@ The proxy maintains a centralized state directory (configurable) for auditing an
 
 ```text
 ~/.bw-blind-proxy/
-├── logs/                  # Immutable Audit Trail (Stripped of secrets)
-│   ├── 2026-02-28_10-00-01_txid_success.log
-│   └── 2026-02-28_10-15-45_txid_rollback_triggered.log
-└── wal/                   # Recovery Engine (Ephemeral)
+├── logs/                  # Immutable Audit Trail (Stripped of secrets) — JSON format
+│   ├── 2026-02-28_10-00-01_<uuid>_success.json
+│   ├── 2026-02-28_10-15-45_<uuid>_rollback_success.json
+│   └── 2026-02-28_11-00-00_<uuid>_rollback_failed.json
+└── wal/                   # Recovery Engine (Ephemeral — only exists during active TX)
     └── pending_transaction.json
 ```
 
-### 🔍 Inside an Audit Log (`logs/*.log`)
-Extremely detailed but **100% blind to secrets**.
-```text
-TRANSACTION ID: c070d585-ba21-4b94-b065-4be725a0bb5b
-TIMESTAMP:      2026-02-28T10:00:01
-STATUS:         SUCCESS
-----------------------------------------
-RATIONALE:
-  Cleaning up obsolete dev credentials as discussed.
-----------------------------------------
-OPERATIONS REQUESTED:
-  [1] Action: edit_item_login | Target: 550e8400-e29b-41d4-a716-446655440000
-  [2] Action: delete_item | Target: 110b3bed-a3b8-4ee0-9cec-3dd950e2d118
-----------------------------------------
-END OF LOG
+### 🔍 Inside an Audit Log (`logs/*.json`)
+Every log is a **structured JSON** — fully machine-parseable and secret-free:
+```json
+{
+  "transaction_id": "c070d585-ba21-4b94-b065-4be725a0bb5b",
+  "timestamp": "2026-02-28T10:00:01",
+  "status": "SUCCESS",
+  "rationale": "Cleaning up obsolete dev credentials as discussed.",
+  "operations_requested": [
+    {"action": "edit_item_login", "target_id": "550e8400-e29b-41d4-a716-446655440000"},
+    {"action": "delete_item",    "target_id": "110b3bed-a3b8-4ee0-9cec-3dd950e2d118"}
+  ],
+  "execution_trace": [
+    "Edited login details for item 550e8400-e29b-41d4-a716-446655440000",
+    "Deleted item 110b3bed-a3b8-4ee0-9cec-3dd950e2d118"
+  ]
+}
 ```
 
 ### 🔍 Inside a WAL Entry (`logs/wal/pending_transaction.json`)
@@ -607,14 +598,22 @@ uv sync
 The proxy features an underlying auditor capturing every structural modification intent.
 
 ```bash
-# View the latest N transactions applied on your Bitwarden vault
+# View the latest N transactions in a Rich table (default: 5)
 uv run bw-proxy logs --n=5
+
+# View the FULL JSON details of a specific transaction
+# -- by transaction ID (or unique prefix):
+uv run bw-proxy log e4f12a
+# -- by recency index (1 = newest, 2 = second newest, etc.):
+uv run bw-proxy log --last 1
+# -- or just call it bare to get the most recent log:
+uv run bw-proxy log
+
+# Inspect the full Write-Ahead Log state (100% JSON transparency)
+uv run bw-proxy wal
 
 # Delete old logs, keeping only the N most recent ones to free up space
 uv run bw-proxy purge --keep=10
-
-# Inspect the status of the local ACID Write-Ahead Log engine
-uv run bw-proxy wal
 ```
 
 ## 🔒 Security Posture & ACID Compliance
