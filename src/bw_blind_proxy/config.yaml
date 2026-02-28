@@ -8,8 +8,13 @@ proxy:
   # How long (in seconds) the in-memory session is kept before being scrubbed
   # 0 means scrub immediately after each batch
   session_timeout: 0
-  
+
 ui:
   # Choices: 'zenity', 'tkinter'
   # Zenity is preferred for seamless Linux native dialogs
   prompt_engine: "zenity"
+
+redaction:
+  # The tags used by the proxy to explicitly inform the AI about secret statuses
+  populated_tag: "[REDACTED_BY_PROXY_POPULATED]"
+  empty_tag: "[REDACTED_BY_PROXY_EMPTY]"

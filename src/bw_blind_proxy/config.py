@@ -32,3 +32,12 @@ def load_config(config_path=CONFIG_PATH, **overrides) -> dict:
         config = {}
         
     return deep_update(config, overrides)
+
+# -----------------
+# GLOBAL TYPED CONSTANTS
+# -----------------
+_config_cache = load_config()
+
+# Redaction tags to prevent hardcoding Pydantic schemas
+REDACTED_POPULATED = _config_cache.get("redaction", {}).get("populated_tag", "[REDACTED_BY_PROXY_POPULATED]")
+REDACTED_EMPTY = _config_cache.get("redaction", {}).get("empty_tag", "[REDACTED_BY_PROXY_EMPTY]")

@@ -1,6 +1,7 @@
 import pytest
 from pydantic import ValidationError
 from bw_blind_proxy.models import TransactionPayload, BlindItem, ItemAction, FolderAction
+from bw_blind_proxy.config import REDACTED_POPULATED, REDACTED_EMPTY
 
 def test_valid_polymorphic_payload():
     """Ensure standard operations parse perfectly using strings matching Enum values."""
@@ -106,8 +107,8 @@ def test_sanitization_identity_ssn():
     }
     item = BlindItem(**raw_item)
     assert item.identity.firstName == "Ivann"
-    assert item.identity.ssn == "[REDACTED_BY_PROXY_POPULATED]"
-    assert item.identity.passportNumber == "[REDACTED_BY_PROXY_POPULATED]"
+    assert item.identity.ssn == REDACTED_POPULATED
+    assert item.identity.passportNumber == REDACTED_POPULATED
 
 def test_sanitization_custom_fields():
     """Ensure BlindField protects hidden values."""
@@ -122,4 +123,4 @@ def test_sanitization_custom_fields():
     }
     item = BlindItem(**raw_item)
     assert item.fields[0].value == "Visible"
-    assert item.fields[1].value == "[REDACTED_BY_PROXY_POPULATED]"
+    assert item.fields[1].value == REDACTED_POPULATED

@@ -1,5 +1,6 @@
 import pytest
 from bw_blind_proxy.models import BlindItem, BlindLogin, BlindFolder
+from bw_blind_proxy.config import REDACTED_POPULATED, REDACTED_EMPTY
 
 def test_blind_login_redacts_password():
     """Ensure that password and totp are ALWAYS redacted, but their PRESENCE is known."""
@@ -13,13 +14,13 @@ def test_blind_login_redacts_password():
     login = BlindLogin(**raw_login)
     
     # Check programmatic access returns correct populated/empty tag
-    assert login.password == "[REDACTED_BY_PROXY_POPULATED]"
-    assert login.totp == "[REDACTED_BY_PROXY_EMPTY]"
+    assert login.password == REDACTED_POPULATED
+    assert login.totp == REDACTED_EMPTY
     
     # Check actual dictionary dump INCLUDES the REDACTED tags now.
     dumped = login.model_dump(exclude_unset=True)
-    assert dumped["password"] == "[REDACTED_BY_PROXY_POPULATED]"
-    assert dumped["totp"] == "[REDACTED_BY_PROXY_EMPTY]"
+    assert dumped["password"] == REDACTED_POPULATED
+    assert dumped["totp"] == REDACTED_EMPTY
     assert "username" in dumped
 
 def test_blind_item_drops_unknown_fields():
@@ -43,7 +44,7 @@ def test_blind_item_drops_unknown_fields():
     dumped = item.model_dump(exclude_unset=True)
     
     # Notes are now explicitly returned with their Null-Aware status
-    assert dumped["notes"] == "[REDACTED_BY_PROXY_POPULATED]"
+    assert dumped["notes"] == REDACTED_POPULATED
     
     # Unknown fields must NOT be in the dump
     assert "this_is_a_new_bw_field_with_secrets" not in dumped
@@ -52,7 +53,7 @@ def test_blind_item_drops_unknown_fields():
     assert dumped["id"] == "1234-5678"
     assert dumped["name"] == "My Bank"
     # Login is nested and sanitized with populated tag
-    assert dumped.get("login", {}).get("password") == "[REDACTED_BY_PROXY_POPULATED]"
+    assert dumped.get("login", {}).get("password") == REDACTED_POPULATED
 
 def test_blind_folder():
     raw_folder = {

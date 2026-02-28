@@ -1,6 +1,7 @@
 from enum import StrEnum
 from typing import List, Optional, Any, Dict, Literal, Union, Annotated
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+from bw_blind_proxy.config import REDACTED_POPULATED, REDACTED_EMPTY
 
 # -----------------
 # ACTION ENUMERATIONS (CENTRALIZATION)
@@ -39,17 +40,17 @@ class BlindLogin(BaseModel):
     username: Optional[str] = None
     uris: Optional[List[Dict[str, Any]]] = None
     
-    password: Optional[str] = Field(default="[REDACTED_BY_PROXY_EMPTY]")
-    totp: Optional[str] = Field(default="[REDACTED_BY_PROXY_EMPTY]")
+    password: Optional[str] = Field(default=REDACTED_EMPTY)
+    totp: Optional[str] = Field(default=REDACTED_EMPTY)
 
     @model_validator(mode='before')
     @classmethod
     def force_redact(cls, data: Any) -> Any:
         if isinstance(data, dict):
             if 'password' in data: 
-                data['password'] = "[REDACTED_BY_PROXY_POPULATED]" if data['password'] else "[REDACTED_BY_PROXY_EMPTY]"
+                data['password'] = REDACTED_POPULATED if data['password'] else REDACTED_EMPTY
             if 'totp' in data: 
-                data['totp'] = "[REDACTED_BY_PROXY_POPULATED]" if data['totp'] else "[REDACTED_BY_PROXY_EMPTY]"
+                data['totp'] = REDACTED_POPULATED if data['totp'] else REDACTED_EMPTY
         return data
 
 class BlindCard(BaseModel):
@@ -61,17 +62,17 @@ class BlindCard(BaseModel):
     expMonth: Optional[str] = None
     expYear: Optional[str] = None
     
-    number: Optional[str] = Field(default="[REDACTED_BY_PROXY_EMPTY]")
-    code: Optional[str] = Field(default="[REDACTED_BY_PROXY_EMPTY]")
+    number: Optional[str] = Field(default=REDACTED_EMPTY)
+    code: Optional[str] = Field(default=REDACTED_EMPTY)
     
     @model_validator(mode='before')
     @classmethod
     def force_redact(cls, data: Any) -> Any:
         if isinstance(data, dict):
             if 'number' in data: 
-                data['number'] = "[REDACTED_BY_PROXY_POPULATED]" if data['number'] else "[REDACTED_BY_PROXY_EMPTY]"
+                data['number'] = REDACTED_POPULATED if data['number'] else REDACTED_EMPTY
             if 'code' in data: 
-                data['code'] = "[REDACTED_BY_PROXY_POPULATED]" if data['code'] else "[REDACTED_BY_PROXY_EMPTY]"
+                data['code'] = REDACTED_POPULATED if data['code'] else REDACTED_EMPTY
         return data
 
 class BlindIdentity(BaseModel):
@@ -94,20 +95,20 @@ class BlindIdentity(BaseModel):
     phone: Optional[str] = None
     username: Optional[str] = None
     
-    ssn: Optional[str] = Field(default="[REDACTED_BY_PROXY_EMPTY]")
-    passportNumber: Optional[str] = Field(default="[REDACTED_BY_PROXY_EMPTY]")
-    licenseNumber: Optional[str] = Field(default="[REDACTED_BY_PROXY_EMPTY]")
+    ssn: Optional[str] = Field(default=REDACTED_EMPTY)
+    passportNumber: Optional[str] = Field(default=REDACTED_EMPTY)
+    licenseNumber: Optional[str] = Field(default=REDACTED_EMPTY)
     
     @model_validator(mode='before')
     @classmethod
     def force_redact(cls, data: Any) -> Any:
         if isinstance(data, dict):
             if 'ssn' in data: 
-                data['ssn'] = "[REDACTED_BY_PROXY_POPULATED]" if data['ssn'] else "[REDACTED_BY_PROXY_EMPTY]"
+                data['ssn'] = REDACTED_POPULATED if data['ssn'] else REDACTED_EMPTY
             if 'passportNumber' in data: 
-                data['passportNumber'] = "[REDACTED_BY_PROXY_POPULATED]" if data['passportNumber'] else "[REDACTED_BY_PROXY_EMPTY]"
+                data['passportNumber'] = REDACTED_POPULATED if data['passportNumber'] else REDACTED_EMPTY
             if 'licenseNumber' in data: 
-                data['licenseNumber'] = "[REDACTED_BY_PROXY_POPULATED]" if data['licenseNumber'] else "[REDACTED_BY_PROXY_EMPTY]"
+                data['licenseNumber'] = REDACTED_POPULATED if data['licenseNumber'] else REDACTED_EMPTY
         return data
 
 class BlindField(BaseModel):
@@ -124,7 +125,7 @@ class BlindField(BaseModel):
         if isinstance(data, dict):
             f_type = data.get("type", 0)
             if f_type in [1, 3]:  # Hidden or Linked are secrets.
-                data["value"] = "[REDACTED_BY_PROXY_POPULATED]" if data.get("value") else "[REDACTED_BY_PROXY_EMPTY]"
+                data["value"] = REDACTED_POPULATED if data.get("value") else REDACTED_EMPTY
         return data
 
 class BlindItem(BaseModel):
@@ -142,14 +143,14 @@ class BlindItem(BaseModel):
     name: str
     favorite: bool = False
     reprompt: int = 0
-    notes: Optional[str] = Field(default="[REDACTED_BY_PROXY_EMPTY]")
+    notes: Optional[str] = Field(default=REDACTED_EMPTY)
     
     @model_validator(mode='before')
     @classmethod
     def force_redact_notes(cls, data: Any) -> Any:
         if isinstance(data, dict):
             if 'notes' in data:
-                data['notes'] = "[REDACTED_BY_PROXY_POPULATED]" if data['notes'] else "[REDACTED_BY_PROXY_EMPTY]"
+                data['notes'] = REDACTED_POPULATED if data['notes'] else REDACTED_EMPTY
         return data
     
     fields: Optional[List[BlindField]] = None
