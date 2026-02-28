@@ -5,60 +5,40 @@ from rich.console import Console
 from rich.table import Table
 from rich.json import JSON
 
-from .logger import LOG_DIR
-from .wal import WALManager
-from .models import TransactionStatus
+from .logger import LOG_DIR, TransactionLogger
 
 app = typer.Typer(help="BW-Blind-Proxy Management & Audit CLI")
 console = Console()
 
 @app.command("logs", help="View the latest transaction logs in a beautifully formatted table.")
 def view_logs(n: int = typer.Option(5, help="Number of latest logs to view")):
-    if not os.path.exists(LOG_DIR):
-        console.print("[yellow]No logs directory found. No transactions have been processed yet.[/yellow]")
-        return
-        
-    files = [f for f in os.listdir(LOG_DIR) if f.endswith(".json")]
-    if not files:
-        console.print("[yellow]No logs found.[/yellow]")
-        return
-        
-    # Sort by descending order (newest first)
-    files.sort(reverse=True)
+    summaries = TransactionLogger.get_recent_logs_summary(n)
     
-    table = Table(title=f"Last {n} Transactions (Anti-Gravity Vault Audit)", show_lines=True)
+    if not summaries:
+        console.print("[yellow]No logs found or directory missing. No transactions have been processed yet.[/yellow]")
+        return
+        
+    table = Table(title=f"Last {len(summaries)} Transactions (Anti-Gravity Vault Audit)", show_lines=True)
     table.add_column("Timestamp", style="cyan", no_wrap=True)
     table.add_column("Transaction ID", style="magenta")
     table.add_column("Status", style="bold")
     table.add_column("Rationale", style="white")
     
-    count = 0
-    for filename in files:
-        if count >= n:
-            break
+    for summary in summaries:
+        tx_id = summary.get("transaction_id", "")
+        ts = summary.get("timestamp", "")
+        status = summary.get("status", "")
+        rat_str = summary.get("rationale", "")
             
-        filepath = os.path.join(LOG_DIR, filename)
-        try:
-            with open(filepath, 'r') as f:
-                log_data = json.load(f)
-                
-            tx_id = log_data.get("transaction_id", "")
-            ts = log_data.get("timestamp", "")
-            status = log_data.get("status", "")
-            rat_str = log_data.get("rationale", "")
-                
-            stat_color = "green"
-            if status == TransactionStatus.CRASH_RECOVERED_ON_BOOT:
-                stat_color = "yellow"
-            elif status in [TransactionStatus.ROLLBACK_TRIGGERED, TransactionStatus.ROLLBACK_SUCCESS, TransactionStatus.ROLLBACK_FAILED, TransactionStatus.ABORTED]:
-                stat_color = "red"
-                
-            status_f = f"[{stat_color}]{status}[/{stat_color}]"
+        stat_color = "green"
+        if status == TransactionStatus.CRASH_RECOVERED_ON_BOOT:
+            stat_color = "yellow"
+        elif status in [TransactionStatus.ROLLBACK_TRIGGERED, TransactionStatus.ROLLBACK_SUCCESS, TransactionStatus.ROLLBACK_FAILED, TransactionStatus.ABORTED]:
+            stat_color = "red"
             
-            table.add_row(ts, tx_id, status_f, rat_str)
-            count += 1
-        except Exception as e:
-            console.print(f"[red]Error reading log {filename}: {str(e)}[/red]")
+        status_f = f"[{stat_color}]{status}[/{stat_color}]"
+        
+        table.add_row(ts, tx_id, status_f, rat_str)
             
     console.print(table)
 
@@ -67,46 +47,19 @@ def view_log(
     tx_id: str = typer.Argument(None, help="The Transaction ID (or a unique prefix of it)"),
     n: int = typer.Option(None, "--last", "-n", help="Fetch the N-th most recent log (1 = newest)")
 ):
-    if not os.path.exists(LOG_DIR):
-        console.print("[yellow]No logs directory found.[/yellow]")
-        return
-        
-    all_files = [f for f in os.listdir(LOG_DIR) if f.endswith(".json")]
-    if not all_files:
-        console.print("[red]No logs found.[/red]")
-        return
-        
-    all_files.sort(reverse=True) # newest first
-        
-    if n is not None:
-        if n < 1 or n > len(all_files):
-            console.print(f"[red]Invalid index '{n}'. Only {len(all_files)} logs available.[/red]")
-            return
-        target_file = all_files[n - 1]
-    elif tx_id is not None:
-        matches = [f for f in all_files if tx_id in f]
-        if not matches:
-            console.print(f"[red]No log found matching Transaction ID: {tx_id}[/red]")
-            return
-        if len(matches) > 1:
-            console.print(f"[yellow]Multiple logs match '{tx_id}'. Please be more specific.[/yellow]")
-            for m in matches:
-                console.print(f"  - {m}")
-            return
-        target_file = matches[0]
-    else:
-        # Default to newest if neither id nor n is provided
-        target_file = all_files[0]
-        
-    filepath = os.path.join(LOG_DIR, target_file)
     try:
-        with open(filepath, 'r') as f:
-            raw_content = f.read()
-            
-        console.print(f"[cyan bold]Log File: {target_file}[/cyan bold]")
-        console.print(JSON(raw_content))
+        log_data = TransactionLogger.get_log_details(tx_id=tx_id, n=n)
+        
+        # We don't have the original filename cleanly here without altering the return signature,
+        # but the JSON has the transaction_id and timestamp which is what matters for display.
+        target_display = tx_id if tx_id else (f"index {n}" if n else "most recent")
+        console.print(f"[cyan bold]Log File Data for: {target_display}[/cyan bold]")
+        console.print(JSON(json.dumps(log_data)))
+        
+    except ValueError as e:
+        console.print(f"[red]{str(e)}[/red]")
     except Exception as e:
-        console.print(f"[red]Error reading log {target_file}: {str(e)}[/red]")
+        console.print(f"[red]Error reading log: {str(e)}[/red]")
 
 @app.command("wal", help="Inspect the Write-Ahead Log for any stranded transactions.")
 def view_wal():

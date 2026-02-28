@@ -1,10 +1,12 @@
 from mcp.server.fastmcp import FastMCP
 from typing import Dict, Any, List, Optional
 
-from .config import load_config, MAX_BATCH_SIZE
+from .config import load_config, MAX_BATCH_SIZE, REDACTED_POPULATED
 from .subprocess_wrapper import SecureSubprocessWrapper, SecureBWError
 from .models import BlindItem, BlindFolder, BlindOrganization, BlindOrganizationCollection, TransactionPayload
 from .transaction import TransactionManager
+from .logger import TransactionLogger
+from .wal import WALManager
 from .ui import HITLManager
 
 # Load configuration (cached automatically)
@@ -175,13 +177,89 @@ def propose_vault_transaction(rationale: str, operations: List[Dict[str, Any]]) 
     except Exception as e:
         return f"Proxy Error processing transaction: {str(e)}"
 
-# Dynamically inject the MAX_BATCH_SIZE into the docstring for the LLM context
+# Dynamically inject the MAX_BATCH_SIZE into the docstrings for the LLM context
 if propose_vault_transaction.__doc__:
     propose_vault_transaction.__doc__ = propose_vault_transaction.__doc__.replace(
         "MAX 10 OPERATIONS", f"MAX {MAX_BATCH_SIZE} OPERATIONS"
     ).replace(
         "exceed 10 operations", f"exceed {MAX_BATCH_SIZE} operations"
     )
+
+@mcp.tool()
+def get_capabilities_overview() -> str:
+    """
+    Returns the technical capabilities, security posture, and limitations 
+    of the BW-Blind-Proxy. Read this to understand the environment you are operating in.
+    """
+    return f"""
+# BW-Blind-Proxy Capabilities & Context
+
+**Your Role:** You are operating through a secure, air-gapped intermediary to the Bitwarden CLI.
+**Slogan:** Zero Trust · Total Transparency · Total Blind
+
+## 1. AI-Blind Environment
+You are strictly forbidden from seeing secrets. The proxy intercepts the CLI output and overwrites sensitive keys (password, totp, ssn, cvv) with `{REDACTED_POPULATED}` (or empty tag) before you ever see them. DO NOT attempt to read them.
+
+## 2. The ACID Transaction Engine
+You can propose transactions using `propose_vault_transaction()`.
+- **Atomicity:** Your proposals run in an All-or-Nothing batch.
+- **Batch Limit:** You are strictly limited to `{MAX_BATCH_SIZE}` operations per call to minimize race conditions.
+- **Rollback (WAL):** The proxy creates a Write-Ahead Log (WAL) on disk. If an operation fails mid-batch, or the PC crashes, the proxy will automatically execute LIFO compensating commands (e.g., `bw restore` after a `bw delete`) to repair the vault.
+
+## 3. Human In The Loop (HITL)
+You cannot modify the vault silently. Every time you propose a transaction, a massive Red Alert GUI popup appears on the user's screen. You must write a clear `rationale` to convince the human to click 'Approve'.
+
+## 4. Self-Auditing & Debugging
+Do not fail silently. You have access to tools to diagnose yourself:
+- Call `get_proxy_audit_context()` to check if the WAL is stranded (meaning the previous transaction crashed the PC).
+- Call `inspect_transaction_log()` to view the exact JSON trace of your past transactions. If your rollback failed, the JSON will contain a `failed_rollback` entry telling you EXACTLY what CLI command you need to run to fix the vault manually.
+"""
+
+@mcp.tool()
+def get_proxy_audit_context(limit: int = 5) -> str:
+    """
+    Returns the current operational status of the BW-Blind-Proxy.
+    Use this to check for 'Write-Ahead Log' (WAL) orphans and recent log history.
+    
+    Call this tool if you encounter a transaction failure or if you 
+    need to synchronize your internal state with the system's audit trail.
+    """
+    import json
+    
+    has_wal = WALManager.has_pending_transaction()
+    wal_status_msg = "CLEAN (Vault is synchronized)" if not has_wal else "PENDING (A transaction crashed and is awaiting auto-recovery. Do NOT send new operations yet.)"
+    
+    recent_logs = TransactionLogger.get_recent_logs_summary(limit)
+    
+    context = {
+        "wal_status": wal_status_msg,
+        "max_batch_size": MAX_BATCH_SIZE,
+        "recent_transactions": recent_logs
+    }
+    
+    return json.dumps(context, indent=2)
+
+@mcp.tool()
+def inspect_transaction_log(tx_id: str = None, n: int = None) -> str:
+    """
+    Fetches the COMPLETE detailed JSON payload of a specific transaction log.
+    If a transaction failed or rolled back, use this to read the `execution_trace`,
+    `rollback_trace`, and `error_message` to understand what went wrong.
+    
+    Args:
+        tx_id: The UUID mapping to the transaction (matches by exact string or prefix).
+        n: The index of the log to fetch (1 = the absolute most recent log, 2 = the second most recent, etc.).
+        
+    If BOTH arguments are empty, it defaults to returning the most recent log (n=1).
+    """
+    import json
+    try:
+        log_data = TransactionLogger.get_log_details(tx_id=tx_id, n=n)
+        return json.dumps(log_data, indent=2)
+    except ValueError as e:
+        return f"Error: {str(e)}"
+    except Exception as e:
+        return f"Unexpected Error reading log: {str(e)}"
 
 def main():
     """Entry point for the script."""

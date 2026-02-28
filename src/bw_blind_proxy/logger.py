@@ -67,3 +67,71 @@ class TransactionLogger:
             json.dump(log_data, f, indent=2)
             
         return filepath
+
+    @staticmethod
+    def get_recent_logs_summary(n: int) -> List[Dict[str, str]]:
+        """
+        Returns a high-level summary of the last `n` transactions.
+        Used by the CLI table and the AI `get_proxy_audit_context` tool.
+        """
+        if not os.path.exists(LOG_DIR):
+            return []
+            
+        files = [f for f in os.listdir(LOG_DIR) if f.endswith(".json")]
+        if not files:
+            return []
+            
+        files.sort(reverse=True) # Newest first
+        
+        summaries = []
+        for filename in files[:n]:
+            try:
+                with open(os.path.join(LOG_DIR, filename), 'r') as f:
+                    data = json.load(f)
+                    
+                summaries.append({
+                    "timestamp": data.get("timestamp", ""),
+                    "transaction_id": data.get("transaction_id", ""),
+                    "status": data.get("status", ""),
+                    "rationale": data.get("rationale", "")
+                })
+            except Exception:
+                continue # Skip broken logs gracefully
+                
+        return summaries
+
+    @staticmethod
+    def get_log_details(tx_id: str = None, n: int = None) -> Dict[str, Any]:
+        """
+        Fetches the complete JSON payload of a specific transaction log.
+        Matches by exact or prefix `tx_id`, OR by recency index `n` (1 = newest).
+        If both are None, returns the absolute newest log.
+        """
+        if not os.path.exists(LOG_DIR):
+            raise ValueError("No logs directory found.")
+            
+        all_files = [f for f in os.listdir(LOG_DIR) if f.endswith(".json")]
+        if not all_files:
+            raise ValueError("No transaction logs exist yet.")
+            
+        all_files.sort(reverse=True)
+        
+        target_file = None
+        if n is not None:
+            if n < 1 or n > len(all_files):
+                raise ValueError(f"Invalid index '{n}'. Only {len(all_files)} logs available.")
+            target_file = all_files[n - 1]
+        elif tx_id is not None:
+            matches = [f for f in all_files if tx_id in f]
+            if not matches:
+                raise ValueError(f"No log found matching Transaction ID: {tx_id}")
+            if len(matches) > 1:
+                raise ValueError(f"Multiple logs match '{tx_id}'. Please provide a more specific prefix.")
+            target_file = matches[0]
+        else:
+            target_file = all_files[0]
+            
+        filepath = os.path.join(LOG_DIR, target_file)
+        with open(filepath, 'r') as f:
+            return json.load(f)
+
