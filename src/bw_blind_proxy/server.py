@@ -1,7 +1,7 @@
 from mcp.server.fastmcp import FastMCP
 from typing import Dict, Any, List, Optional
 
-from .config import load_config
+from .config import load_config, MAX_BATCH_SIZE
 from .subprocess_wrapper import SecureSubprocessWrapper, SecureBWError
 from .models import BlindItem, BlindFolder, BlindOrganization, BlindOrganizationCollection, TransactionPayload
 from .transaction import TransactionManager
@@ -174,6 +174,14 @@ def propose_vault_transaction(rationale: str, operations: List[Dict[str, Any]]) 
         return TransactionManager.execute_batch(payload)
     except Exception as e:
         return f"Proxy Error processing transaction: {str(e)}"
+
+# Dynamically inject the MAX_BATCH_SIZE into the docstring for the LLM context
+if propose_vault_transaction.__doc__:
+    propose_vault_transaction.__doc__ = propose_vault_transaction.__doc__.replace(
+        "MAX 10 OPERATIONS", f"MAX {MAX_BATCH_SIZE} OPERATIONS"
+    ).replace(
+        "exceed 10 operations", f"exceed {MAX_BATCH_SIZE} operations"
+    )
 
 def main():
     """Entry point for the script."""
