@@ -151,11 +151,11 @@ Add the following to your Claude/Cursor configurations, or your `gemini-cli` con
 To truly trust a sovereign proxy, you must understand how it behaves in extreme edge cases. Read these explicit simulations in the `docs/` folder:
 
 * `docs/bitwarden_architecture.md`: Explains the granular anatomy of the Bitwarden schemas and the reverse-engineering used for the Proxy's defense model.
-* `docs/simulation_exhaustive.md`: The base AI negotiation cycle and memory wiping.
-* `docs/simulation_organization.md`: Complex orchestration and batching logic.
-* `docs/simulation_destruction.md`: How the Red Alert systems protect against malicious AI deletions.
-* `docs/simulation_advanced_types.md`: How Pydantic obliterates AI attempts to modify PII and Custom Hidden Fields.
-* `docs/simulation_extreme_edge.md`: *(See actual file for Phase 4 Trash/Collection/Reprompt capabilities)*.
+* `docs/01_simulation_core_protocol.md`: The base AI negotiation cycle and memory wiping.
+* `docs/02_simulation_vault_organization.md`: Complex orchestration and batching logic.
+* `docs/03_simulation_pii_redaction.md`: How Pydantic obliterates AI attempts to modify PII and Custom Hidden Fields.
+* `docs/04_simulation_extreme_edge.md`: *(See actual file for Phase 4 Trash/Collection/Reprompt capabilities)*.
+* `docs/05_simulation_destructive_firewall.md`: How the Red Alert systems protect against malicious AI deletions.
 
 ---
 **Maintained with 100% transparency. Your secrets remain yours.**
