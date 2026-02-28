@@ -106,4 +106,6 @@ def test_transaction_auto_recovery_execution(mock_log, mock_exec, tmp_path):
         
         # 6. Logger should have recorded the crash recovery
         mock_log.assert_called_once()
-        assert mock_log.call_args[0][2] == "CRASH_RECOVERED_ON_BOOT"
+        # log_transaction is now called with kwargs exclusively
+        assert mock_log.call_args.kwargs["status"] == "CRASH_RECOVERED_ON_BOOT"
+

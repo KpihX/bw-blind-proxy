@@ -18,11 +18,53 @@ class TransactionManager:
     """
     
     @staticmethod
+    def _perform_rollback(
+        rollback_stack: List[Dict[str, Any]],
+        session_key: str
+    ) -> Dict[str, Any]:
+        """
+        Core LIFO rollback engine, shared by execute_batch and check_recovery.
+        Returns a structured result dict:
+          {
+            "success": bool,
+            "executed": List[str],         # commands that ran successfully
+            "failed_cmd": str | None,       # the single cmd that crashed (if any)
+            "error": str | None             # the exception message (if any)
+          }
+        This function DOES NOT touch the WAL. Callers decide whether to clear or
+        preserve it based on the result, enabling safe non-destructive recovery.
+        """
+        # Materialise once to allow O(1)-index access if a crash occurs mid-loop
+        rollback_lifo_list = list(reversed(rollback_stack))
+        executed: List[str] = []
+        
+        try:
+            for rb_cmd in rollback_lifo_list:
+                args = rb_cmd.get("cmd", [])
+                if args and args[0] == "bw":
+                    # Strip "bw" — SecureSubprocessWrapper.execute prepends it automatically
+                    SecureSubprocessWrapper.execute(args[1:], session_key)
+                    executed.append(" ".join(args))
+            return {"success": True, "executed": executed, "failed_cmd": None, "error": None}
+        except Exception as e:
+            # Identify the single command that failed via O(1) index
+            rb_idx = len(executed)
+            failed_cmd = None
+            if rb_idx < len(rollback_lifo_list):
+                args = rollback_lifo_list[rb_idx].get("cmd", [])
+                failed_cmd = " ".join(args)
+            return {"success": False, "executed": executed, "failed_cmd": failed_cmd, "error": str(e)}
+
+    @staticmethod
     def check_recovery(session_key: str) -> Optional[str]:
         """
         Checks the WAL for orphaned transactions resulting from a hard crash.
-        If found, executes the LIFO rollback commands to restore vault integrity.
-        Returns a warning string for the LLM if a recovery occurred, None otherwise.
+        If found, calls _perform_rollback to restore vault integrity.
+
+        - On success: clears the WAL, logs CRASH_RECOVERED_ON_BOOT, returns a warning for the LLM.
+        - On failure: PRESERVES the WAL (so manual recovery is still possible),
+          logs ROLLBACK_FAILED, and returns a rich diagnostic message so the LLM can
+          decide whether to retry or escalate to the user.
         """
         if not WALManager.has_pending_transaction():
             return None
@@ -31,20 +73,52 @@ class TransactionManager:
         tx_id = wal_data.get("transaction_id", "UNKNOWN")
         rollback_stack = wal_data.get("rollback_commands", [])
         
-        try:
-            for rb_cmd in reversed(rollback_stack):
-                args = rb_cmd.get("cmd", [])
-                if args and args[0] == "bw":
-                    SecureSubprocessWrapper.execute(args[1:], session_key)
+        result = TransactionManager._perform_rollback(rollback_stack, session_key)
+        
+        # Synthetic Pydantic payload used to produce a log entry for this recovery event
+        mock_payload = TransactionPayload(
+            rationale="Hard-crash detected upon startup. System auto-recovered via WAL.",
+            operations=[]
+        )
+        
+        if result["success"]:
+            # Vault is clean — destroy the WAL so we never re-apply the same rollback
             WALManager.clear_wal()
-            
-            # Log the successful recovery
-            mock_payload = TransactionPayload(rationale="Hard-crash detected upon startup. System auto-recovered via WAL.", operations=[])
-            TransactionLogger.log_transaction(tx_id, mock_payload, TransactionStatus.CRASH_RECOVERED_ON_BOOT)
-            
-            return f"WARNING: A previous critical crash was detected. The proxy automatically executed a full WAL rollback to restore Vault integrity. The previous transaction {tx_id} was aborted."
-        except Exception as e:
-            raise RuntimeError(f"FATAL WAL RECOVERY ERROR: The proxy tried to restore the vault from WAL but failed: {str(e)}")
+            TransactionLogger.log_transaction(
+                transaction_id=tx_id,
+                payload=mock_payload,
+                status=TransactionStatus.CRASH_RECOVERED_ON_BOOT,
+                executed_rolled_back_cmds=result["executed"]
+            )
+            return (
+                f"WARNING: A previous critical crash was detected (TX: {tx_id}). "
+                f"The proxy executed a full WAL rollback ({len(result['executed'])} command(s)) "
+                f"and restored vault integrity. The previous transaction was aborted. "
+                f"You may now proceed safely."
+            )
+        else:
+            # WAL is intentionally NOT cleared — the vault is still dirty
+            TransactionLogger.log_transaction(
+                transaction_id=tx_id,
+                payload=mock_payload,
+                status=TransactionStatus.ROLLBACK_FAILED,
+                error_message=f"RecoveryError: {result['error']}",
+                executed_rolled_back_cmds=result["executed"],
+                failed_rollback_cmd=result["failed_cmd"]
+            )
+            msg = (
+                f"CRITICAL: A previous crash (TX: {tx_id}) was detected and the WAL rollback FAILED.\n"
+                f"Recovery Error: {result['error']}\n"
+                f"Successfully reversed commands: {result['executed']}\n"
+                f"Command that failed to revert: {result['failed_cmd']}\n\n"
+                f"The WAL file has been preserved. "
+                f"Diagnosis: If this is a transient network error, retry calling ANY tool to re-attempt recovery. "
+                f"If the error mentions 'Item not found', manual intervention is required: "
+                f"run the failed command directly via the Bitwarden CLI. "
+                f"IMPORTANT: Do NOT attempt new vault operations until this is resolved."
+            )
+            return msg
+
 
     @staticmethod
     def execute_batch(payload_dict: Dict[str, Any]) -> str:
@@ -109,37 +183,27 @@ class TransactionManager:
                 failed_op = payload.operations[idx].model_dump(exclude_none=True)
                 
             logger_status = TransactionStatus.ROLLBACK_TRIGGERED
-            try:
-                # Materialise once to allow O(1)-index access later if rollback crashes
-                rollback_lifo_list = list(reversed(rollback_stack))
-                # Execute Rollback via LIFO reading of the RAM stack
-                for rb_cmd in rollback_lifo_list:
-                    args = rb_cmd.get("cmd", [])
-                    if args and args[0] == "bw":
-                        # Strip "bw" from args because SecureSubprocessWrapper.execute prepends it automatically
-                        SecureSubprocessWrapper.execute(args[1:], session_key)
-                        executed_rolled_back_cmds.append(" ".join(args))
+            # Delegate to the shared engine — no WAL mutation inside
+            rb_result = TransactionManager._perform_rollback(rollback_stack, session_key)
+            
+            executed_rolled_back_cmds = rb_result["executed"]
+            failed_rollback_cmd = rb_result["failed_cmd"]
+            
+            if rb_result["success"]:
                 WALManager.clear_wal()
                 logger_status = TransactionStatus.ROLLBACK_SUCCESS
                 
                 err_msg = f"CRITICAL: Transaction failed during the following operation:\n{json.dumps(failed_op, indent=2)}\n\nError: {str(main_err)}\n\n"
                 err_msg += f"A full rollback was successfully performed. The {len(executed_rolled_back_cmds)} commands executed to revert your previous {len(executed_ops)} operations have reversed the vault back to its pristine state."
                 return err_msg
-            except Exception as fatal_err:
+            else:
                 logger_status = TransactionStatus.ROLLBACK_FAILED
+                # Enrich logger_err with the full dual error chain for total log transparency
+                logger_err = f"ExecutionError: {str(main_err)} | RollbackError: {rb_result['error']}"
                 
-                # Same O(1) index pattern as failed_op: the failing cmd is just past the last succeeded one
-                rb_idx = len(executed_rolled_back_cmds)
-                if rb_idx < len(rollback_lifo_list):
-                    args = rollback_lifo_list[rb_idx].get("cmd", [])
-                    failed_rollback_cmd = " ".join(args)
-                
-                # Enrich logger_err with the full error chain for total log transparency
-                logger_err = f"ExecutionError: {str(main_err)} | RollbackError: {str(fatal_err)}"
-                    
                 fatal_msg = f"FATAL ERROR: Transaction failed, AND the rollback mechanism also failed. Vault is in an inconsistent state!\n"
                 fatal_msg += f"Execution Error: {str(main_err)}\n"
-                fatal_msg += f"Rollback Error: {str(fatal_err)}\n\n"
+                fatal_msg += f"Rollback Error: {rb_result['error']}\n\n"
                 fatal_msg += f"The following rollback commands successfully executed before crash: {json.dumps(executed_rolled_back_cmds)}\n"
                 fatal_msg += f"The command that failed to rollback: {failed_rollback_cmd}\n"
                 
