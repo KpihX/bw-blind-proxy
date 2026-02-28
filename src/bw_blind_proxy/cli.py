@@ -61,6 +61,37 @@ def view_logs(n: int = typer.Option(5, help="Number of latest logs to view")):
             
     console.print(table)
 
+@app.command("log", help="View the full details of a specific transaction log by its ID.")
+def view_log(tx_id: str = typer.Argument(..., help="The Transaction ID (or a unique prefix of it)")):
+    if not os.path.exists(LOG_DIR):
+        console.print("[yellow]No logs directory found.[/yellow]")
+        return
+        
+    files = [f for f in os.listdir(LOG_DIR) if f.endswith(".json") and tx_id in f]
+    
+    if not files:
+        console.print(f"[red]No log found matching Transaction ID: {tx_id}[/red]")
+        return
+        
+    if len(files) > 1:
+        console.print(f"[yellow]Multiple logs match '{tx_id}'. Please be more specific.[/yellow]")
+        for f in files:
+            console.print(f"  - {f}")
+        return
+        
+    filepath = os.path.join(LOG_DIR, files[0])
+    try:
+        import json
+        from rich.json import JSON
+        
+        with open(filepath, 'r') as f:
+            raw_content = f.read()
+            
+        console.print(f"[cyan bold]Log File: {files[0]}[/cyan bold]")
+        console.print(JSON(raw_content))
+    except Exception as e:
+        console.print(f"[red]Error reading log {files[0]}: {str(e)}[/red]")
+
 @app.command("wal", help="Inspect the Write-Ahead Log for any stranded transactions.")
 def view_wal():
     if WALManager.has_pending_transaction():
