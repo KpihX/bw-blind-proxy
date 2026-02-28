@@ -21,6 +21,7 @@ class FolderAction(StrEnum):
     CREATE = "create_folder"
     RENAME = "rename_folder"
     DELETE = "delete_folder"
+    RESTORE = "restore_folder"
 
 class EditAction(StrEnum):
     LOGIN = "edit_item_login"
@@ -229,6 +230,10 @@ class DeleteFolderAction(BaseAction):
     action: Literal[FolderAction.DELETE] = FolderAction.DELETE
     target_id: str
 
+class RestoreFolderAction(BaseAction):
+    action: Literal[FolderAction.RESTORE] = FolderAction.RESTORE
+    target_id: str
+
 # --- EDIT ACTIONS ---
 class EditItemLoginAction(BaseAction):
     action: Literal[EditAction.LOGIN] = EditAction.LOGIN
@@ -289,6 +294,7 @@ VaultTransactionAction = Annotated[
         CreateFolderAction, 
         RenameFolderAction, 
         DeleteFolderAction, 
+        RestoreFolderAction,
         EditItemLoginAction,
         EditItemCardAction,
         EditItemIdentityAction,

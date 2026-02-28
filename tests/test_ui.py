@@ -6,6 +6,7 @@ from bw_blind_proxy.models import (
     RestoreItemAction,
     UpsertCustomFieldAction,
     DeleteFolderAction,
+    RestoreFolderAction,
     EditItemLoginAction
 )
 
@@ -16,12 +17,14 @@ def test_ui_format_operations():
     op_field = UpsertCustomFieldAction(target_id="3", name="API Key", value="sk_123", type=0)
     op_del = DeleteFolderAction(target_id="4")
     op_login = EditItemLoginAction(target_id="5", username="user@foo.com")
+    op_res_folder = RestoreFolderAction(target_id="6")
     
     assert "✏️ RENAME ITEM (1) -> 'A'" in HITLManager._format_operation(op_rename)
     assert "♻️ RESTORE ITEM (2) -> From Trash" in HITLManager._format_operation(op_restore)
     assert "🏷️ UPSERT FIELD (3) -> [Text] 'API Key' = 'sk_123'" in HITLManager._format_operation(op_field)
     assert "💥 DELETE FOLDER (4)" in HITLManager._format_operation(op_del)
     assert "🔧 EDIT LOGIN (5) -> Username='user@foo.com'" in HITLManager._format_operation(op_login)
+    assert "♻️ RESTORE FOLDER (6) -> From Trash" in HITLManager._format_operation(op_res_folder)
 
 from unittest.mock import patch, MagicMock
 

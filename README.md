@@ -51,11 +51,11 @@ Here is exactly how an AI interacts with your vault.
  [ AI Agent ]                       [ BW-Blind-Proxy ]               [ Bitwarden CLI ]
       |                                     |                                |
       | -- 1. get_vault_map() ------------> |                                |
-      |                                     | -- 2. Zenity UI Prompt       | |
-      |                                     | <- User enters Master Pw --  | |
+      |                                     | -- 2. Zenity UI Prompt ------> |
+      |                                     | <- User enters Master Pw ----  |
       |                                     |                                |
-      |                                     | -- 3. bw unlock -----------> |
-      |                                     | <- Vault JSON (Uncensored) - |
+      |                                     | -- 3. bw unlock ----------->   |
+      |                                     | <- Vault JSON (Uncensored) -   |
       |                                     |                                |
       |   (Pydantic Validation Firewall)    |  [ See: docs/01_simulation_core_protocol.md ]
       |   * Redact 'password', 'totp' *     |  [ See: docs/03_simulation_pii_redaction.md ]
@@ -74,11 +74,11 @@ Here is exactly how an AI interacts with your vault.
       |                                     |   (Enum Schema Validation)     |
       |                                     |   * extra="forbid" aborts *    |
       |                                     |                                |
-      |                                     | -- 6. Zenity UI POPUP        | | [ See: docs/05_simulation_destructive_firewall.md ]
-      |                                     | <- User clicks 'Approve' --- | |
+      |                                     | -- 6. Zenity UI POPUP          |  [ See: docs 05_simulation_destructive_firewall.md ]
+      |                                     | <- User clicks 'Approve' ---   |
       |                                     |                                |
-      |                                     | -- 7. bw edit item --------> | [ See: docs/02_simulation_vault_organization.md ]
-      |                                     | <- Vault Updated ----------- |
+      |                                     | -- 7. bw edit item -------->   [ See: docs/02_simulation_vault_organization.md ]
+      |                                     | <- Vault Updated -----------   |
       |                                     |                                |
       | <- 8. Success Message ------------- |   (Memory Wipe to 0x00)        | [ See: docs/01_simulation_core_protocol.md ]
       |                                     |                                |
@@ -98,9 +98,9 @@ Here is exactly how an AI interacts with your vault.
 
 ---
 
-## 🛠️ Exhaustive API Coverage (15 Enum Actions)
+## 🛠️ Exhaustive API Coverage (16 Enum Actions)
 
-The proxy maps Bitwarden's complex CLI into 15 robust, completely secure internal Enums.
+The proxy maps Bitwarden's complex CLI into 16 robust, completely secure internal Enums.
 
 ### Item Organization (`ItemAction`)
 1. **`rename_item`**: Safely alters the name of a secret.
@@ -116,38 +116,16 @@ The proxy maps Bitwarden's complex CLI into 15 robust, completely secure interna
 9. **`create_folder`**: Instantiates a new logical grouping.
 10. **`rename_folder`**: Self-explanatory.
 11. **`delete_folder`**: [🚨 RED ALERT] Deletes the folder (does not delete the items inside, they go to root).
+12. **`restore_folder`**: [Phase 4 Edge] Recovers a folder from the Trash.
 
 ### Granular PII Editing (`EditAction`)
 To edit an item, the Python Subprocess grabs the full hidden JSON locally, surgicaly injects the AI's safe modification, and pushes it back up.
-12. **`edit_item_login`**: Safely updates `Username` & `URIs`. (Strictly rejects attempts to edit `password` or `totp`).
-13. **`edit_item_card`**: Safely updates Expiration Dates, Name, & Brand. (Strictly rejects Credit Card Number & CVV edits).
-14. **`edit_item_identity`**: Safely updates Standard Address & Contact Info. (Strictly rejects SSN, Passport, and License edits).
-15. **`upsert_custom_field`**: Adds/updates unstructured metadata. (Strictly limited to `Type 0: Text` and `Type 2: Boolean`. The AI is blocked from reading or altering `Type 1: Hidden` or `Type 3: Linked` secrets).
+13. **`edit_item_login`**: Safely updates `Username` & `URIs`. (Strictly rejects attempts to edit `password` or `totp`).
+14. **`edit_item_card`**: Safely updates Expiration Dates, Name, & Brand. (Strictly rejects Credit Card Number & CVV edits).
+15. **`edit_item_identity`**: Safely updates Standard Address & Contact Info. (Strictly rejects SSN, Passport, and License edits).
+16. **`upsert_custom_field`**: Adds/updates unstructured metadata. (Strictly limited to `Type 0: Text` and `Type 2: Boolean`. The AI is blocked from reading or altering `Type 1: Hidden` or `Type 3: Linked` secrets).
 
 ---
-
-## 🏗️ Project Adjustment (The Final API Coverage)
-To make **BW-Blind-Proxy** exhaustively complete, we implemented these historical adjustments:
-
-1. **Schema Refactoring (`models.py`)**:
-   - Created `BlindCard` (redacts number, code).
-   - Created `BlindIdentity` (redacts ssn, passport, license).
-   - Created `BlindField` (redacts `value` if target is hidden/linked).
-   - Updated `BlindItem` to include `card`, `identity`, `secureNote` and `fields`.
-
-2. **Transaction Refactoring (`models.py` & `transaction.py`)**:
-   - Added action `toggle_favorite` (target_id, boolean).
-   - Added action `edit_item_card` (allows changing expiry date, name).
-   - Added action `edit_item_identity` (allows changing address/email).
-   - Added action `upsert_custom_field` (allows adding/modifying Text/Boolean fields safely without erasing existing hidden fields). 
-
-3. **Phase 4 "The Extreme Edge" (FULLY IMPLEMENTED)**:
-   - Added `ItemAction.RESTORE` (Trash recovery).
-   - Added `ItemAction.DELETE_ATTACHMENT` (Attachment purging).
-   - Added `ItemAction.MOVE_TO_COLLECTION` (Enterprise sharing).
-   - Added `ItemAction.TOGGLE_REPROMPT` (Master Password reprompt flag).
-
-This design guarantees that *every single non-sensitive lever* in Bitwarden is directly, explicitly, and securely accessible by the LLM via Pydantic Enums, while not a single cryptographic or PII secret can ever leak.
 
 ### 🦾 The "Extreme Edge" (Phase 4 Logic)
 For organizational perfection, the Proxy handles advanced states without ever touching the secret keys:

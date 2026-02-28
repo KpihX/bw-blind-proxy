@@ -28,15 +28,17 @@ def test_extreme_edge_actions():
             {"action": "restore_item", "target_id": "test-id"},
             {"action": "toggle_reprompt", "target_id": "test-id", "reprompt": True},
             {"action": "delete_attachment", "target_id": "test-id", "attachment_id": "attach-99"},
-            {"action": "move_to_collection", "target_id": "test-id", "organization_id": "org-55"}
+            {"action": "move_to_collection", "target_id": "test-id", "organization_id": "org-55"},
+            {"action": "restore_folder", "target_id": "folder-id"}
         ]
     }
     payload = TransactionPayload(**raw)
-    assert len(payload.operations) == 4
+    assert len(payload.operations) == 5
     assert payload.operations[0].action == ItemAction.RESTORE
     assert payload.operations[1].reprompt is True
     assert payload.operations[2].attachment_id == "attach-99"
     assert payload.operations[3].organization_id == "org-55"
+    assert payload.operations[4].action == FolderAction.RESTORE
 
 def test_edit_login_forbids_password():
     """Ensure that editing a login explicitly rejects password updates."""

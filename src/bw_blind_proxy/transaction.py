@@ -122,6 +122,10 @@ class TransactionManager:
             SecureSubprocessWrapper.execute(["delete", "folder", op.target_id], session_key)
             return f"-> Deleted folder {op.target_id}"
             
+        elif op.action == FolderAction.RESTORE:
+            SecureSubprocessWrapper.execute(["restore", "folder", op.target_id], session_key)
+            return f"-> Restored folder {op.target_id} from trash"
+            
         # --- EDIT ACTIONS ---
         elif op.action == EditAction.LOGIN:
             def u(data):

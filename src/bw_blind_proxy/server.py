@@ -40,13 +40,18 @@ def get_vault_map() -> str:
         raw_trash = SecureSubprocessWrapper.execute_json(["list", "items", "--trash"], session_key)
         trash_items = [BlindItem(**i).model_dump(exclude_unset=True) for i in raw_trash]
         
+        # Fetch Deleted (Trash) Folders
+        raw_trash_folders = SecureSubprocessWrapper.execute_json(["list", "folders", "--trash"], session_key)
+        trash_folders = [BlindFolder(**f).model_dump(exclude_unset=True) for f in raw_trash_folders]
+        
         result = {
             "status": "success",
             "message": "Vault map successfully retrieved. Sensitive fields are redacted.",
             "data": {
                 "folders": folders,
                 "items": items,
-                "trash_items": trash_items
+                "trash_items": trash_items,
+                "trash_folders": trash_folders
             }
         }
         
@@ -89,12 +94,13 @@ def propose_vault_transaction(payload: Dict[str, Any]) -> str:
           9. "create_folder" -> Requires: name (str)
           10. "rename_folder" -> Requires: target_id (str), new_name (str)
           11. "delete_folder" -> Requires: target_id (str). WARNING: Destructive.
+          12. "restore_folder" -> Requires: target_id (str). Restores from trash.
           
           [EDIT ACTIONS]
-          12. "edit_item_login" -> Requires: target_id, and optional 'username' or 'uris'. 
-          13. "edit_item_card" -> Requires: target_id, and optional 'cardholderName', 'brand', 'expMonth', 'expYear'. 
-          14. "edit_item_identity" -> Requires: target_id, and optional 'title', 'firstName', 'email', 'phone', etc.
-          15. "upsert_custom_field" -> Requires: target_id (str), name (str), value (str), type (int: 0 for Text, 2 for Boolean).
+          13. "edit_item_login" -> Requires: target_id, and optional 'username' or 'uris'. 
+          14. "edit_item_card" -> Requires: target_id, and optional 'cardholderName', 'brand', 'expMonth', 'expYear'. 
+          15. "edit_item_identity" -> Requires: target_id, and optional 'title', 'firstName', 'email', 'phone', etc.
+          16. "upsert_custom_field" -> Requires: target_id (str), name (str), value (str), type (int: 0 for Text, 2 for Boolean).
           
           Note: YOU CANNOT PASS SENSITIVE FIELDS ('password', 'totp', 'number', 'code', 'ssn', 'value' of hidden fields). ATTEMPTING TO DO SO WILL FAIL VALIDATION.
           

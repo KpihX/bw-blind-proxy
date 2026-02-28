@@ -60,6 +60,8 @@ class HITLManager:
             return f"✏️ RENAME FOLDER ({op.target_id}) -> '{op.new_name}'"
         elif op.action == FolderAction.DELETE:
             return f"💥 DELETE FOLDER ({op.target_id})"
+        elif op.action == FolderAction.RESTORE:
+            return f"♻️ RESTORE FOLDER ({op.target_id}) -> From Trash"
             
         # --- EDIT ACTIONS ---
         elif op.action == EditAction.LOGIN:
