@@ -10,7 +10,7 @@ It strongly enforces the **"AI-Blind Management"** philosophy. You can ask an AI
 
 ## 🧭 The Philosophy
 
-> **Blind by Design · Zero Trust · Radical Transparency**
+> **Zero Trust · Total Transparency · Total Blind**
 
 This project does not ask for your trust. It is architected so that trust becomes irrelevant.
 
