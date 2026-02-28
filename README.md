@@ -17,6 +17,7 @@ If you want to understand the codebase, read the documentation in this specific 
 3. **[PII & Card Defense](docs/03_simulation_pii_redaction.md)**: Shielding your Identity and Credit Cards.
 4. **[Advanced Edge Features](docs/04_simulation_extreme_edge.md)**: Trash, Collections, and Attachments.
 5. **[The Destructive Firewall](docs/05_simulation_destructive_firewall.md)**: How Zenity prevents AI hallucinations from deleting your life.
+6. **[Safe Creation](docs/06_simulation_safe_creation.md)**: How the AI spawns empty shell items without polluting secrets.
 
 ```text
    [ USER PROMPT ]  : "IpihX, rename my GitHub account and move it to Dev."
@@ -86,11 +87,12 @@ Here is exactly how an AI interacts with your vault.
 
 ### The 4 Pillars of Defense
 
-1. **AI-Blind Read Operations:** The AI reads structural metadata. `password`, `totp`, `notes` (Secure Notes), `number` (CC), `code` (CVV), `ssn` (Identity), `passportNumber`, and "Hidden" Custom Fields are instantly overwritten by Pydantic before the LLM sees the JSON.
-   - If the original field is filled, the AI sees `"[REDACTED_BY_PROXY_POPULATED]"`.
-   - If the field is blank or missing, the AI sees `"[REDACTED_BY_PROXY_EMPTY]"`.
+1. **AI-Blind Read Operations:** The AI reads structural metadata only.
+   - **Never Received:** The LLM is isolated from `revisionDate`, `creationDate`, `deletedDate`, `passwordHistory`, and `attachments` (unless explicitly requested). They are completely ignored by Pydantic and never reach the prompt.
+   - **Redacted (Tags):** The LLM sees the *existence* of sensitive fields but not their value. `password`, `totp`, `notes` (Secure Notes), `number` (CC), `code` (CVV), `ssn` (Identity), `passportNumber`, and "Hidden" Custom Fields are instantly overwritten with `[REDACTED_BY_PROXY_...]`.
    - **Deep Dive:** Read **[03_simulation_pii_redaction.md](docs/03_simulation_pii_redaction.md)** for more.
-2. **Strict Polymorphic Pydantic Schemas:** The AI **CANNOT** execute wild bash commands. It can only propose from a hardcoded list of 15 `Enum` atomic actions. If a rogue AI tries to slip `"password": "hacked"` into a `RenameItem` payload, Pydantic's `extra="forbid"` rule immediately detonates the payload and aborts the transaction.
+2. **Strict Polymorphic Pydantic Schemas:** The AI **CANNOT** execute wild bash commands. It can only propose from a hardcoded list of 17 `Enum` atomic actions. If a rogue AI tries to slip `"password": "hacked"` into a `create_item` payload, Pydantic's `extra="forbid"` rule immediately detonates the payload and aborts the transaction.
+   - **Deep Dive:** Read **[06_simulation_safe_creation.md](docs/06_simulation_safe_creation.md)**.
 3. **Hardware-Level Memory Wiping:** The `BW_SESSION` key and your Master Password are fundamentally obliterated from Python memory immediately after usage. Instead of relying on Python's Garbage Collector (which leaves strings floating in RAM for hackers to dump), the proxy converts keys to raw `bytearray` matrices and systematically overwrites them with zeroes (`0x00`).
    - **Deep Dive:** Read **[01_simulation_core_protocol.md](docs/01_simulation_core_protocol.md)**.
 4. **Red Alerts on Destructive Actions:** Modifying an item logs a blue UI prompt. Deleting an item/folder triggers a native Red Warning Zenity Box to guarantee a human doesn't sleepwalk into approving an AI's destructive hallucination.
@@ -98,12 +100,13 @@ Here is exactly how an AI interacts with your vault.
 
 ---
 
-## 🛠️ Exhaustive API Coverage (16 Enum Actions)
+## 🛠️ Exhaustive API Coverage (17 Enum Actions)
 
-The proxy maps Bitwarden's complex CLI into 16 robust, completely secure internal Enums.
+The proxy maps Bitwarden's complex CLI into 17 robust, completely secure internal Enums.
 
 ### Item Organization (`ItemAction`)
-1. **`rename_item`**: Safely alters the name of a secret.
+1. **`create_item`**: Spawns an empty shell (Login, Note, Card, Identity) locally. Strictly blocks LLM from creating secrets safely.
+2. **`rename_item`**: Safely alters the name of a secret.
 2. **`move_item`**: Reparents an item inside a specific Folder UUID.
 3. **`favorite_item`**: Toggles the star/favorite status.
 4. **`delete_item`**: [🚨 RED ALERT] Removes item to the Trash.
@@ -177,6 +180,7 @@ To truly trust a sovereign proxy, you must understand how it behaves in extreme 
 * `docs/03_simulation_pii_redaction.md`: How Pydantic obliterates AI attempts to modify PII and Custom Hidden Fields.
 * `docs/04_simulation_extreme_edge.md`: *(See actual file for Phase 4 Trash/Collection/Reprompt capabilities)*.
 * `docs/05_simulation_destructive_firewall.md`: How the Red Alert systems protect against malicious AI deletions.
+* `docs/06_simulation_safe_creation.md`: How the AI creates safe empty shells without generating passwords.
 
 ---
 **Maintained with 100% transparency. Your secrets remain yours.**

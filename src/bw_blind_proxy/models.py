@@ -8,6 +8,7 @@ from bw_blind_proxy.config import REDACTED_POPULATED, REDACTED_EMPTY
 # -----------------
 
 class ItemAction(StrEnum):
+    CREATE = "create_item"
     RENAME = "rename_item"
     MOVE_TO_FOLDER = "move_item"
     DELETE = "delete_item"
@@ -178,6 +179,53 @@ class BaseAction(BaseModel):
     action: str
 
 # --- ITEM ACTIONS ---
+class CreateLoginPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    username: Optional[str] = None
+    uris: Optional[List[Dict[str, str]]] = None
+
+class CreateCardPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    cardholderName: Optional[str] = None
+    brand: Optional[str] = None
+    expMonth: Optional[str] = None
+    expYear: Optional[str] = None
+
+class CreateIdentityPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    title: Optional[str] = None
+    firstName: Optional[str] = None
+    middleName: Optional[str] = None
+    lastName: Optional[str] = None
+    address1: Optional[str] = None
+    address2: Optional[str] = None
+    address3: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    postalCode: Optional[str] = None
+    country: Optional[str] = None
+    company: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    username: Optional[str] = None
+
+class CreateItemAction(BaseAction):
+    """
+    Creates a new empty shell item. 
+    Any attempt to pass 'password', 'totp', 'ssn', 'number', 'code' etc. 
+    will trigger a Pydantic ValidationError because of extra="forbid".
+    """
+    action: Literal[ItemAction.CREATE] = ItemAction.CREATE
+    type: Literal[1, 2, 3, 4] = Field(description="1: Login, 2: SecureNote, 3: Card, 4: Identity")
+    name: str
+    folder_id: Optional[str] = None
+    organization_id: Optional[str] = None
+    favorite: bool = False
+    
+    login: Optional[CreateLoginPayload] = None
+    card: Optional[CreateCardPayload] = None
+    identity: Optional[CreateIdentityPayload] = None
+
 class RenameItemAction(BaseAction):
     action: Literal[ItemAction.RENAME] = ItemAction.RENAME
     target_id: str
@@ -283,6 +331,7 @@ class UpsertCustomFieldAction(BaseAction):
 
 VaultTransactionAction = Annotated[
     Union[
+        CreateItemAction,
         RenameItemAction, 
         MoveItemAction, 
         DeleteItemAction, 

@@ -34,7 +34,10 @@ class HITLManager:
         from .models import ItemAction, FolderAction, EditAction
         
         # --- ITEM ACTIONS ---
-        if op.action == ItemAction.RENAME:
+        if op.action == ItemAction.CREATE:
+            t_str = {1: "Login", 2: "SecureNote", 3: "Card", 4: "Identity"}.get(op.type, "Unknown")
+            return f"🌟 CREATE ITEM ({t_str}) -> '{op.name}'"
+        elif op.action == ItemAction.RENAME:
             return f"✏️ RENAME ITEM ({op.target_id}) -> '{op.new_name}'"
         elif op.action == ItemAction.MOVE_TO_FOLDER:
             return f"📂 MOVE ITEM ({op.target_id}) -> to folder '{op.folder_id or 'ROOT'}'"

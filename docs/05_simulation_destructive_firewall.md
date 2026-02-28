@@ -2,7 +2,7 @@
 
 Ce document retrace le cheminement exact d'un octet lorsqu'une opération **destructrice** est déclenchée (ex: suppression de dossier ou de mot de passe).
 
-[ ⬅️ 04: Extreme Edge ](04_simulation_extreme_edge.md) | [ Finish: README ➡️ ](../README.md)
+[ ⬅️ 04: Extreme Edge ](04_simulation_extreme_edge.md) | [ 06: Shell Creation ➡️ ](06_simulation_safe_creation.md)
 
 ---
 

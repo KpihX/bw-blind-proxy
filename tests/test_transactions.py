@@ -40,6 +40,46 @@ def test_extreme_edge_actions():
     assert payload.operations[3].organization_id == "org-55"
     assert payload.operations[4].action == FolderAction.RESTORE
 
+def test_create_item_forbids_secrets():
+    """Ensure that creating a shell item explicitly rejects password or other secrets."""
+    raw = {
+        "rationale": "Creating a login but trying to inject a password",
+        "operations": [
+            {
+                "action": "create_item",
+                "type": 1,
+                "name": "My New Login",
+                "login": {
+                    "username": "foo",
+                    "password": "I_AM_A_ROUGE_AI"
+                }
+            }
+        ]
+    }
+    
+    with pytest.raises(ValidationError) as exc:
+        TransactionPayload(**raw)
+    assert "Extra inputs are not permitted" in str(exc.value)
+
+def test_create_item_valid_shell():
+    """Ensure valid shell creation bypasses validation."""
+    raw = {
+        "rationale": "Safe empty shell",
+        "operations": [
+            {
+                "action": "create_item",
+                "type": 1,
+                "name": "Safe Login",
+                "login": {
+                    "username": "safe_user"
+                }
+            }
+        ]
+    }
+    payload = TransactionPayload(**raw)
+    assert payload.operations[0].action == ItemAction.CREATE
+    assert payload.operations[0].login.username == "safe_user"
+
 def test_edit_login_forbids_password():
     """Ensure that editing a login explicitly rejects password updates."""
     raw = {

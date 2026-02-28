@@ -61,7 +61,41 @@ class TransactionManager:
             return target_id
 
         # --- ITEM ACTIONS ---
-        if op.action == ItemAction.RENAME:
+        if op.action == ItemAction.CREATE:
+            item_tpl = SecureSubprocessWrapper.execute_json(["get", "template", "item"], session_key)
+            item_tpl["type"] = op.type
+            item_tpl["name"] = op.name
+            item_tpl["folderId"] = op.folder_id
+            item_tpl["organizationId"] = op.organization_id
+            item_tpl["favorite"] = op.favorite
+            # Crucially empty the notes template to avoid accidental secrets
+            item_tpl["notes"] = None
+            
+            if op.type == 1 and op.login:
+                login_tpl = SecureSubprocessWrapper.execute_json(["get", "template", "item.login"], session_key)
+                if op.login.username is not None: login_tpl["username"] = op.login.username
+                if op.login.uris is not None: login_tpl["uris"] = op.login.uris
+                item_tpl["login"] = login_tpl
+            elif op.type == 3 and op.card:
+                card_tpl = SecureSubprocessWrapper.execute_json(["get", "template", "item.card"], session_key)
+                if op.card.cardholderName is not None: card_tpl["cardholderName"] = op.card.cardholderName
+                if op.card.brand is not None: card_tpl["brand"] = op.card.brand
+                if op.card.expMonth is not None: card_tpl["expMonth"] = op.card.expMonth
+                if op.card.expYear is not None: card_tpl["expYear"] = op.card.expYear
+                item_tpl["card"] = card_tpl
+            elif op.type == 4 and op.identity:
+                id_tpl = SecureSubprocessWrapper.execute_json(["get", "template", "item.identity"], session_key)
+                # Apply non-None fields
+                for k, v in op.identity.model_dump(exclude_none=True).items():
+                    if k in id_tpl:
+                        id_tpl[k] = v
+                item_tpl["identity"] = id_tpl
+                
+            encoded_json = json.dumps(item_tpl)
+            SecureSubprocessWrapper.execute(["create", "item", encoded_json], session_key)
+            return f"-> Created new {op.type} item '{op.name}'"
+            
+        elif op.action == ItemAction.RENAME:
             def u(data): data["name"] = op.new_name
             safe_edit_item(op.target_id, u)
             return f"-> Renamed item {op.target_id} to '{op.new_name}'"

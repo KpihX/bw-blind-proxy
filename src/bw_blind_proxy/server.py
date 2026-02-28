@@ -81,14 +81,15 @@ def propose_vault_transaction(payload: Dict[str, Any]) -> str:
       - "operations": A list of operation objects. Each object MUST have an "action" field matching ONE of:
       
           [ITEM ACTIONS]
-          1. "rename_item" -> Requires: target_id (str), new_name (str)
-          2. "move_item" -> Requires: target_id (str), folder_id (str or null)
-          3. "delete_item" -> Requires: target_id (str). WARNING: Destructive.
-          4. "restore_item" -> Requires: target_id (str). Restores from trash.
-          5. "favorite_item" -> Requires: target_id (str), favorite (bool)
-          6. "move_to_collection" -> Requires: target_id (str), organization_id (str).
-          7. "toggle_reprompt" -> Requires: target_id (str), reprompt (bool).
-          8. "delete_attachment" -> Requires: target_id (str), attachment_id (str). WARNING: Destructive.
+          1. "create_item" -> Requires: type (1-4), name. Optional: folder_id, organization_id, login, card, identity. SECRETS FORBIDDEN.
+          2. "rename_item" -> Requires: target_id (str), new_name (str)
+          3. "move_item" -> Requires: target_id (str), folder_id (str or null)
+          4. "delete_item" -> Requires: target_id (str). WARNING: Destructive.
+          5. "restore_item" -> Requires: target_id (str). Restores from trash.
+          6. "favorite_item" -> Requires: target_id (str), favorite (bool)
+          7. "move_to_collection" -> Requires: target_id (str), organization_id (str).
+          8. "toggle_reprompt" -> Requires: target_id (str), reprompt (bool).
+          9. "delete_attachment" -> Requires: target_id (str), attachment_id (str). WARNING: Destructive.
           
           [FOLDER ACTIONS]
           9. "create_folder" -> Requires: name (str)
