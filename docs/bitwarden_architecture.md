@@ -19,7 +19,7 @@ Every secret in Bitwarden is wrapped in a generic `Item` schema regardless of it
   "folderId": "folder-123",   // UUID of parent folder (e.g., "b87...f92")
   "type": 1,                  // 1=Login, 2=SecureNote, 3=Card, 4=Identity
   "name": "GitHub Account",   // Visible item label
-  "notes": "My recovery key", // SENSITIVE (Could contain secrets) -> [REDACTED]
+  "notes": "My recovery key", // SENSITIVE (Could contain secrets) -> [REDACTED_BY_PROXY_POPULATED]
   "favorite": true,           // Starred status
   "fields": [],               // Array of CustomField objects
   "login": { ... },           // Login details (if type 1)
@@ -52,9 +52,9 @@ Custom fields are incredibly versatile but dangerous.
     { "uri": "https://github.com/login", "match": null } 
   ],
   "username": "kpihx-x24",     // Visible to AI
-  "password": "secret_pw_123", // SENSITIVE -> [REDACTED]
-  "totp": "6-digit-seed-base32",// SENSITIVE -> [REDACTED]. Time-based One-Time Password seed (RFC 6238). Used to generate ephemeral 2FA codes.
-  "fido2Credentials": []       // Passkey/U2F hardware metadata. (REDACTED). List of registered security keys.
+  "password": "secret_pw_123", // SENSITIVE -> [REDACTED_BY_PROXY_POPULATED]
+  "totp": "6-digit-seed-base32",// SENSITIVE -> [REDACTED_BY_PROXY_POPULATED]. Time-based One-Time Password seed (RFC 6238). Used to generate ephemeral 2FA codes.
+  "fido2Credentials": []       // Passkey/U2F hardware metadata. (REDACTED_BY_PROXY_POPULATED). List of registered security keys.
 }
 ```
 
@@ -75,10 +75,10 @@ Custom fields are incredibly versatile but dangerous.
 {
   "cardholderName": "I. Harold K. P.", // Holder name
   "brand": "visa",            // Brand (e.g., "mastercard", "amex")
-  "number": "4000123456789010",// SENSITIVE -> [REDACTED]
+  "number": "4000123456789010",// SENSITIVE -> [REDACTED_BY_PROXY_POPULATED]
   "expMonth": "12",           // Expiry Month (Visible to AI)
   "expYear": "2028",          // Expiry Year (Visible to AI)
-  "code": "555"               // SENSITIVE (CVV) -> [REDACTED]
+  "code": "555"               // SENSITIVE (CVV) -> [REDACTED_BY_PROXY_POPULATED]
 }
 ```
 **Proxy Rule:** To support Cards, we must explicitly redact `number` and `code`. The AI can only read/edit `cardholderName`, `brand`, `expMonth`, and `expYear`.
@@ -103,10 +103,10 @@ Identities contain personal identifiable information (PII). In an ultra-secure e
   "company": "Lokad",          // Employer name (Visible)
   "email": "kpihx@lokad.com",  // Contact email (Visible)
   "phone": "+33612345678",      // Contact phone (Visible)
-  "ssn": "1234567890123",      // SENSITIVE (PII) -> [REDACTED]
+  "ssn": "1234567890123",      // SENSITIVE (PII) -> [REDACTED_BY_PROXY_POPULATED]
   "username": "kpihx",         // Identity username (Visible)
-  "passportNumber": "FRA-555", // SENSITIVE (PII) -> [REDACTED]
-  "licenseNumber": "LIC-999"   // SENSITIVE (PII) -> [REDACTED]
+  "passportNumber": "FRA-555", // SENSITIVE (PII) -> [REDACTED_BY_PROXY_POPULATED]
+  "licenseNumber": "LIC-999"   // SENSITIVE (PII) -> [REDACTED_BY_PROXY_POPULATED]
 }
 ```
 **Proxy Rule:** The proxy will redact `ssn`, `passportNumber`, and `licenseNumber`. The AI can read and edit the standard address and contact info.

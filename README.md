@@ -55,7 +55,10 @@ The transparency of this proxy is its greatest strength. Here is exactly how an 
 
 ### The 4 Pillars of Defense
 
-1. **AI-Blind Read Operations:** The AI reads structural metadata. `password`, `totp`, `notes` (Secure Notes), `number` (CC), `code` (CVV), `ssn` (Identity), `passportNumber`, and "Hidden" Custom Fields are instantly overwritten with `"[REDACTED_BY_PROXY]"` by Pydantic before the LLM sees the JSON.
+1. **AI-Blind Read Operations:** The AI reads structural metadata. `password`, `totp`, `notes` (Secure Notes), `number` (CC), `code` (CVV), `ssn` (Identity), `passportNumber`, and "Hidden" Custom Fields are instantly overwritten by Pydantic before the LLM sees the JSON.
+   - If the original field is filled, the AI sees `"[REDACTED_BY_PROXY_POPULATED]"`.
+   - If the field is blank or missing, the AI sees `"[REDACTED_BY_PROXY_EMPTY]"`.
+   - **Benefit:** The AI can warn you if an important password or 2FA seed is missing, without ever having read the actual cryptographic data.
 2. **Strict Polymorphic Pydantic Schemas:** The AI **CANNOT** execute wild bash commands. It can only propose from a hardcoded list of 15 `Enum` atomic actions. If a rogue AI tries to slip `"password": "hacked"` into a `RenameItem` payload, Pydantic's `extra="forbid"` rule immediately detonates the payload and aborts the transaction.
 3. **Hardware-Level Memory Wiping:** The `BW_SESSION` key and your Master Password are fundamentally obliterated from Python memory immediately after usage. Instead of relying on Python's Garbage Collector (which leaves strings floating in RAM for hackers to dump), the proxy converts keys to raw `bytearray` matrices and systematically overwrites them with zeroes (`0x00`).
 4. **Red Alerts on Destructive Actions:** Modifying an item logs a blue UI prompt. Deleting an item/folder triggers a native Red Warning Zenity Box to guarantee a human doesn't sleepwalk into approving an AI's destructive hallucination.

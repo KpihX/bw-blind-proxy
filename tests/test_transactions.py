@@ -106,8 +106,8 @@ def test_sanitization_identity_ssn():
     }
     item = BlindItem(**raw_item)
     assert item.identity.firstName == "Ivann"
-    assert item.identity.ssn == "[REDACTED_BY_PROXY]"
-    assert item.identity.passportNumber == "[REDACTED_BY_PROXY]"
+    assert item.identity.ssn == "[REDACTED_BY_PROXY_POPULATED]"
+    assert item.identity.passportNumber == "[REDACTED_BY_PROXY_POPULATED]"
 
 def test_sanitization_custom_fields():
     """Ensure BlindField protects hidden values."""
@@ -122,4 +122,4 @@ def test_sanitization_custom_fields():
     }
     item = BlindItem(**raw_item)
     assert item.fields[0].value == "Visible"
-    assert item.fields[1].value == "[REDACTED_BY_PROXY]"
+    assert item.fields[1].value == "[REDACTED_BY_PROXY_POPULATED]"
