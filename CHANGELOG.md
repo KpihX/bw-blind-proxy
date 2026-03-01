@@ -2,7 +2,7 @@
 
 All notable changes to this project, from its inception to the current secure state.
 
-## [v1.2.1] - 2026-03-01: CLI Polish & UI Aliases
+## [v1.2.2] - 2026-03-01: CLI Polish & UI Aliases
 ### 🔧 CLI Improvements
 - **Aliased Purge**: Added `-k` and `--keep` aliases for the `purge` command for faster log management.
 - **Robust Error Catching**: Refined the CLI entry point to catch `ValueError` and `SecureProxyError` explicitly, preventing raw stack traces from reaching the user while maintaining diagnostic clarity.
