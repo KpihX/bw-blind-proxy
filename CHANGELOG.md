@@ -13,7 +13,12 @@ All notable changes to this project, from its inception to the current secure st
   - `bw-mcp restart` (Cleanly kill the stale process so the MCP client auto-respawns the new binary)
 - **Extensive Daemon Tests**: Implemented comprehensive unit tests (`test_daemon.py`) verifying state-checking and SIGTERM mocking.
 
-### 📈 Scale Improvements
+### 📈 Scale & Tooling Improvements
+- **Auditing CLI Re-Architecture**: Restructured the audit commands (`bw-proxy`) from flat commands (`logs`, `log`, `wal`, `purge`) into Typer command groups:
+  - `bw-proxy log view -l/--list <n>` (replaces `logs`) or `-n/--number <i>` (replaces `log`)
+  - `bw-proxy log purge -k/--keep <n>` (replaces `purge`)
+  - `bw-proxy wal view` (replaces `wal`)
+  - `bw-proxy wal delete` (New destructive operation requiring Master Password)
 - **Increased Batch Capacity**: Raised `max_batch_size` default limit in `config.yaml` from 10 to 25 operations to support heavier automated vault organization scripts without fragmentation.
 
 ## [v1.2.3] - 2026-03-01: UI Security & Pango Immunity

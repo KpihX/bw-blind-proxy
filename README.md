@@ -705,17 +705,20 @@ uv tool install .
 The proxy features an underlying auditor capturing every structural modification intent.
 
 ```bash
-# View the latest N transactions in a Rich table (default: 5)
-uv run bw-proxy logs --n=5
+# View a table of the 5 most recent transactions
+uv run bw-proxy log view -l 5
 
-# View the FULL JSON details of a specific transaction
-uv run bw-proxy log
+# View the FULL JSON details of the most recent transaction (index 1)
+uv run bw-proxy log view -n 1
 
-# Inspect the full Write-Ahead Log state (100% JSON transparency)
-uv run bw-proxy wal
+# Delete old logs, keeping only the 10 most recent ones
+uv run bw-proxy log purge -k 10
 
-# Delete old logs, keeping only the N most recent ones
-uv run bw-proxy purge --keep=10
+# Inspect the full Write-Ahead Log state (Requires Master Password)
+uv run bw-proxy wal view
+
+# Delete the Write-Ahead Log to force-clear stranded transactions (Requires Master Password)
+uv run bw-proxy wal delete
 ```
 
 ### ⚙️ Daemon Lifecycle CLI (`bw-mcp`)
