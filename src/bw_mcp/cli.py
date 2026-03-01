@@ -9,12 +9,13 @@ from .logger import LOG_DIR, TransactionLogger
 from .wal import WALManager
 from .models import TransactionStatus
 from .scrubber import deep_scrub_payload
+from .subprocess_wrapper import SecureProxyError
 
 app = typer.Typer(help="BW-MCP Management & Audit CLI")
 console = Console()
 
 @app.command("logs", help="View the latest transaction logs in a beautifully formatted table.")
-def view_logs(n: int = typer.Option(5, help="Number of latest logs to view")):
+def view_logs(n: int = typer.Option(5, "-l", "--last", help="Number of latest logs to view")):
     summaries = TransactionLogger.get_recent_logs_summary(n)
     
     if not summaries:
@@ -47,8 +48,8 @@ def view_logs(n: int = typer.Option(5, help="Number of latest logs to view")):
 
 @app.command("log", help="View the full details of a specific transaction log. Default: shows the most recent log.")
 def view_log(
-    tx_id: str = typer.Argument(None, help="The Transaction ID (or a unique prefix of it)"),
-    n: int = typer.Option(None, "--last", "-n", help="Fetch the N-th most recent log (1 = newest)")
+    tx_id: str = typer.Option(None, "--id", "-i", help="The Transaction ID (or a unique prefix of it)"),
+    n: int = typer.Option(1, "--last", "-l", help="Fetch the N-th most recent log (1 = newest)")
 ):
     try:
         log_data = TransactionLogger.get_log_details(tx_id=tx_id, n=n)
@@ -59,10 +60,10 @@ def view_log(
         console.print(f"[cyan bold]Log File Data for: {target_display}[/cyan bold]")
         console.print(JSON(json.dumps(log_data)))
         
-    except ValueError as e:
-        console.print(f"[red]{type(e).__name__}: {str(e)}[/red]")
+    except (ValueError, SecureProxyError) as e:
+        console.print(f"[red]Error: {str(e)}[/red]")
     except Exception as e:
-        console.print(f"[red]Error reading log: {type(e).__name__}[/red]")
+        console.print(f"[red]Unexpected Error: {type(e).__name__}[/red]")
 
 @app.command("wal", help="Inspect the Write-Ahead Log for any stranded transactions.")
 def view_wal():
@@ -98,7 +99,7 @@ def view_wal():
         console.print("[green]WAL is clean. No stranded transactions. Vault is perfectly synced.[/green]")
 
 @app.command("purge", help="Delete old transaction logs, keeping only the N most recent ones.")
-def purge_logs(keep: int = typer.Option(10, help="Number of latest logs to keep")):
+def purge_logs(keep: int = typer.Option(10, "-k", "--keep", help="Number of latest logs to keep")):
     if not os.path.exists(LOG_DIR):
         console.print("[yellow]No logs directory found. Nothing to purge.[/yellow]")
         return

@@ -767,8 +767,71 @@ If you are running from the source code without global installation:
 }
 ```
 
-#### Environment Variables
-The server expects `BW_PASSWORD_ENV` (or similar) to be available if you want to bypass manual prompt during certain non-interactive sessions, but by default, **it will use Zenity to prompt you for the Master Password on your screen.**
+#### 3. Gemini CLI Extension Integration 🤖
+
+If you use the `gemini-cli`, you can integrate `bw-mcp` natively to give your agent Bitwarden superpowers.
+
+**Case A: Local Development / Cloned Repository**
+
+1. In the root of your `bw-mcp` clone, create a `gemini-extension.json`:
+```json
+{
+  "name": "bw-mcp",
+  "version": "1.2.1",
+  "description": "Sovereign IA-Blind Proxy for Bitwarden",
+  "mcpServers": {
+    "bw-mcp": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "/path/to/bw-mcp/",
+        "run",
+        "bw-mcp"
+      ]
+    }
+  },
+  "contextFileName": "GEMINI.md"
+}
+```
+> **Tip:** You can customize `GEMINI.md` in the project root to provide specific, persistent instructions to the Gemini agent regarding your vault's security policy or organization preferences.
+
+1. Install the extension directly from the folder:
+```bash
+gemini extensions install .
+```
+
+**Case B: Installation via PyPI**
+
+1. Create a dedicated directory for the extension bridge (e.g., `~/bw-gemini`).
+2. Inside, create a `gemini-extension.json` pointing to your global `bw-mcp` executable:
+```json
+{
+  "name": "bw-mcp",
+  "version": "1.2.1",
+  "description": "Sovereign IA-Blind Proxy for Bitwarden",
+  "mcpServers": {
+    "bw-mcp": {
+      "command": "/path/to/your/.local/bin/bw-mcp",
+      "args": []
+    }
+  },
+  "contextFileName": "GEMINI.md"
+}
+```
+3. (Optional) Create a `GEMINI.md` in that directory for custom instructions.
+4. Install the extension using the folder path:
+```bash
+gemini extensions install ~/bw-gemini/
+```
+
+**Verification**
+
+Check that the server is detected and active:
+```bash
+gemini extensions list
+# or
+gemini mcp list
+```
 
 ---
 

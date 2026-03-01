@@ -12,3 +12,5 @@ wheels/
 # Agent-internal docs (not pushed to remotes)
 MEMORY.md
 AGENT.md
+GEMINI.md
+gemini-extension.json

@@ -55,6 +55,6 @@ If you are a newly spawned agent tasked with extending or debugging this server:
 3. **Key Files for Deep-Dive:**
     - [README.md](README.md): The structural map and feature overview.
     - [MEMORY.md](MEMORY.md): **READ THIS FIRST.** It contains the "Why" behind every complex security decision (Bytecode vs Strings, ACID logic, Bitwarden quirks).
-    - [CHANGELOG.md](CHANGELOG.md): The historical evolution from v1.0.0 (Foundation) to v1.2.0 (Ironclad Hardening).
+    - [CHANGELOG.md](CHANGELOG.md): The historical evolution from v1.0.0 (Foundation) to v1.2.1 (CLI Polish).
     - `src/bw_mcp/models.py`: The single source of truth for the 16 actions.
     - `src/bw_mcp/transaction.py`: The heart of the ACID engine.

@@ -2,7 +2,13 @@
 
 All notable changes to this project, from its inception to the current secure state.
 
-## [v1.2.0] - 2026-03-01: The Ironclad Hardening (Current / Finalizing)
+## [v1.2.1] - 2026-03-01: CLI Polish & UI Aliases
+### 🔧 CLI Improvements
+- **Aliased Purge**: Added `-k` and `--keep` aliases for the `purge` command for faster log management.
+- **Robust Error Catching**: Refined the CLI entry point to catch `ValueError` and `SecureProxyError` explicitly, preventing raw stack traces from reaching the user while maintaining diagnostic clarity.
+- **Version Bump**: Synced project version to 1.2.1.
+
+## [v1.2.0] - 2026-03-01: The Ironclad Hardening
 ### 🔒 Security & Cryptography
 - **Encrypted WAL**: Transitioned from plaintext `.json` to encrypted `.wal` format using **Fernet (AES-128-CBC + HMAC)**.
 - **Key Derivation**: Implemented **PBKDF2-HMAC-SHA256** with 480,000 iterations and 16-byte cryptographic salts for WAL security.
