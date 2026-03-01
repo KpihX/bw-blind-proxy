@@ -63,3 +63,29 @@ def test_ui_no_destructive_alert():
         assert "zenity" in call_args
         assert "--question" in call_args
         assert "--icon-name=dialog-warning" not in call_args
+
+def test_ui_escaping_special_characters():
+    """Verify that special characters are escaped to prevent Zenity/Pango markup crashes."""
+    payload = TransactionPayload(
+        rationale="Organizing Perso & Social",
+        operations=[RenameItemAction(target_id="1", new_name="A & B < C > D")]
+    )
+    
+    with patch('bw_mcp.ui.subprocess.run') as mock_run:
+        mock_run.return_value = MagicMock(returncode=0)
+        
+        HITLManager.review_transaction(payload, id_to_name={"1": "Me & You"})
+        
+        call_args = mock_run.call_args[0][0]
+        text_arg = ""
+        for i, arg in enumerate(call_args):
+            if arg == "--text":
+                text_arg = call_args[i+1]
+                break
+        
+        # Check rationale
+        assert "Organizing Perso &amp; Social" in text_arg
+        # Check item name (resolved via id_to_name)
+        assert "'Me &amp; You'" in text_arg
+        # Check new name
+        assert "A &amp; B &lt; C &gt; D" in text_arg

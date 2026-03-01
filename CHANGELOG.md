@@ -2,6 +2,11 @@
 
 All notable changes to this project, from its inception to the current secure state.
 
+## [v1.2.3] - 2026-03-01: UI Security & Pango Immunity
+### 🔒 UI Hardening
+- **Pango Markup Escaping**: Implemented systematic XML/HTML escaping for all strings displayed in Zenity popups. This prevents UI crashes or blank dialogs when vault items or rationales contain special characters like `&`, `<`, or `>`.
+- **Bulletproof HITL**: Added unit tests specifically for character escaping in the UI layer.
+
 ## [v1.2.2] - 2026-03-01: CLI Polish & UI Aliases
 ### 🔧 CLI Improvements
 - **Aliased Purge**: Added `-k` and `--keep` aliases for the `purge` command for faster log management.

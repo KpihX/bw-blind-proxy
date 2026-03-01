@@ -1,4 +1,5 @@
 import subprocess
+import html
 from typing import List, Any, Dict
 from .models import TransactionPayload
 
@@ -43,16 +44,16 @@ class HITLManager:
         def resolve(uuid: str, prefix: str = "") -> str:
             if not uuid: return "ROOT"
             name = (id_to_name or {}).get(uuid)
-            if name: return f"'{name}'"
+            if name: return f"'{html.escape(name)}'"
             return f"{prefix}({uuid})"
 
         # --- ITEM ACTIONS ---
         if op.action == ItemAction.CREATE:
             t_str = {1: "Login", 2: "SecureNote", 3: "Card", 4: "Identity"}.get(op.type, "Unknown")
             # If creating a new item, op.name is available directly
-            return f"🌟 CREATE ITEM ({t_str}) -> '{op.name}'" + (f" in folder {resolve(op.folder_id, 'folder ')}" if op.folder_id else "")
+            return f"🌟 CREATE ITEM ({t_str}) -> '{html.escape(op.name)}'" + (f" in folder {resolve(op.folder_id, 'folder ')}" if op.folder_id else "")
         elif op.action == ItemAction.RENAME:
-            return f"✏️ RENAME ITEM {resolve(op.target_id)} -> '{op.new_name}'"
+            return f"✏️ RENAME ITEM {resolve(op.target_id)} -> '{html.escape(op.new_name)}'"
         elif op.action == ItemAction.MOVE_TO_FOLDER:
             return f"📂 MOVE ITEM {resolve(op.target_id)} -> to folder {resolve(op.folder_id)}"
         elif op.action == ItemAction.DELETE:
@@ -72,16 +73,16 @@ class HITLManager:
             
         # --- FOLDER ACTIONS ---
         elif op.action == FolderAction.CREATE:
-            return f"📁 CREATE FOLDER -> '{op.name}'"
+            return f"📁 CREATE FOLDER -> '{html.escape(op.name)}'"
         elif op.action == FolderAction.RENAME:
-            return f"✏️ RENAME FOLDER {resolve(op.target_id)} -> '{op.new_name}'"
+            return f"✏️ RENAME FOLDER {resolve(op.target_id)} -> '{html.escape(op.new_name)}'"
         elif op.action == FolderAction.DELETE:
             return f"💥 DELETE FOLDER {resolve(op.target_id)}"
             
         # --- EDIT ACTIONS ---
         elif op.action == EditAction.LOGIN:
             changes = []
-            if op.username: changes.append(f"Username='{op.username}'")
+            if op.username: changes.append(f"Username='{html.escape(op.username)}'")
             if op.uris: changes.append(f"URIs={len(op.uris)} values")
             return f"🔧 EDIT LOGIN {resolve(op.target_id)} -> {', '.join(changes)}"
         elif op.action == EditAction.CARD:
@@ -94,7 +95,7 @@ class HITLManager:
             return f"🪪 EDIT IDENTITY {resolve(op.target_id)} -> Updated contact fields"
         elif op.action == EditAction.CUSTOM_FIELD:
             t_str = "Text" if op.type == 0 else "Boolean"
-            return f"🏷️ UPSERT FIELD {resolve(op.target_id)} -> [{t_str}] '{op.name}' = '{op.value}'"
+            return f"🏷️ UPSERT FIELD {resolve(op.target_id)} -> [{t_str}] '{html.escape(op.name)}' = '{html.escape(op.value)}'"
             
         return f"❓ UNKNOWN ACTION: {op.action}"
 
@@ -122,7 +123,7 @@ class HITLManager:
             text_header = "The AI Agent proposes the following batch operations:"
 
         # We must use Pango markup to ensure colors render nicely in Zenity warning boxes.
-        text = f"{text_header}\n\n<b>Operations:</b>\n{formatted_ops}\n\n<b>Rationale:</b> {payload.rationale}\n\nDo you explicitly approve these changes?"
+        text = f"{text_header}\n\n<b>Operations:</b>\n{formatted_ops}\n\n<b>Rationale:</b> {html.escape(payload.rationale)}\n\nDo you explicitly approve these changes?"
         
         try:
             # Zenity --warning doesn't always have a Cancel button by default, 
