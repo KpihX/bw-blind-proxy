@@ -477,17 +477,60 @@ Error: Invalid transaction payload. ValidationError: An internal error occurred.
 
 ## 🛠️ Architecture
 
-```mermaid
-graph TD
-    A[Agent Workspace (Claude/Gemini)] -->|Tool Call| B[FastMCP Server]
-    B -->|Sanitized Read| C[Pydantic Models]
-    C -->|Redacted Payload| A
-    B -->|Write Intention| D[Virtual Vault & WAL Engine]
-    D -->|Zenity UI Prompts| E[Human Approval + Master Password]
-    E -->|Write-Ahead Log Serialization| F[(Local WAL Disk)]
-    F -->|Secure Execution| G[subprocess `bw` CLI]
-    G -->|Success| H[Clear WAL + Write Audit Log]
-    G -->|Failure/Crash| I[LIFO Crash Recovery]
+```text
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                       BW-BLIND-PROXY — ARCHITECTURE                         │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+  ┌──────────────────────────┐
+  │  Agent Workspace         │  (Claude / Gemini / Cursor)
+  │  (LLM has ZERO secrets)  │
+  └────────┬─────────────────┘
+           │  Tool Call (get_vault_map / propose_vault_transaction)
+           ▼
+  ┌──────────────────────────┐
+  │  FastMCP Server          │  ← 5 tools exposed, meta-prompt aligned
+  │  server.py               │
+  └──────┬───────────────────┘
+         │                          │ READ path
+         │ WRITE path               ▼
+         │                 ┌───────────────────┐
+         │                 │  Pydantic Models   │  BlindItem redaction
+         │                 │  models.py  🔒     │  extra="forbid" on writes
+         │                 └────────┬──────────┘
+         │                          │ Redacted payload → back to Agent
+         ▼
+  ┌──────────────────────────┐
+  │  Virtual Vault &         │  Validates batch · Pre-computes rollback stack
+  │  WAL Engine              │
+  │  transaction.py + wal.py │
+  └──────┬───────────────────┘
+         │
+         ▼
+  ┌──────────────────────────┐
+  │  Human-in-the-Loop       │  Zenity popup → Red Alert for destructive ops
+  │  ui.py  ⚠️               │  Master Password captured as bytearray
+  └──────┬───────────────────┘
+         │  Approved + Password
+         ▼
+  ┌──────────────────────────┐
+  │  WAL Disk (Encrypted)    │  Fernet(AES-128) + PBKDF2(480k iter) + salt
+  │  ~/.bw_blind_proxy/wal/  │  chmod 600 · idempotent pop on each step
+  └──────┬───────────────────┘
+         │
+         ▼
+  ┌──────────────────────────┐
+  │  subprocess `bw` CLI     │  bytearray session key → zeroed in finally
+  │  subprocess_wrapper.py   │
+  └──────┬──────────┬────────┘
+         │          │
+    Success        Failure / Crash
+         │          │
+         ▼          ▼
+  ┌────────────┐  ┌───────────────────────┐
+  │ Clear WAL  │  │  LIFO Crash Recovery  │  Rollback applied in reverse
+  │ Write Log  │  │  transaction.py       │  WAL preserved until clean
+  └────────────┘  └───────────────────────┘
 ```
 
 ---
@@ -654,6 +697,7 @@ uv tool install bw-blind-proxy
 git clone https://github.com/KpihX/bw-blind-proxy.git
 cd bw-blind-proxy
 uv sync
+uv tool install .
 ```
 
 ### 🖥️ Native Auditing CLI (`bw-proxy`)
