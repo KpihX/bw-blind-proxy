@@ -14,6 +14,7 @@
     - No caching of `BW_SESSION` keys in logs or persistent storage.
     - Mandatory sanitization of all output from the `bw` CLI.
     - Explicit human validation (via system notifications or CLI prompts) for write/update operations.
+- **Distribution:** Primary distribution via PyPI (`uv tool install bw-blind-proxy`).
 
 ## ⚙️ Operational Rules
 - **No Bypassing:** Agents must never attempt to call `bw` directly using `run_shell_command`. All Bitwarden interactions must go through the tools defined in this MCP server.

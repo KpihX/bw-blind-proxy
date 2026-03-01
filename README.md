@@ -643,12 +643,16 @@ To inspect a stranded WAL, use the CLI: `uv run bw-proxy wal` (prompts for Maste
 
 Requires Python 3.12+ and `uv`.
 
+#### Recommended: Install via `uv tool` (PyPI)
+This installs the proxy in an isolated environment and makes the `bw-blind-proxy` command available globally.
 ```bash
-# Clone the repository
-git clone [...]
-cd bw-blind-proxy
+uv tool install bw-blind-proxy
+```
 
-# Install project and CLI binary using uv
+#### Alternative: Install from source
+```bash
+git clone https://github.com/KpihX/bw-blind-proxy.git
+cd bw-blind-proxy
 uv sync
 ```
 
@@ -677,10 +681,32 @@ uv run bw-proxy purge --keep=10
 
 ### 🔌 Adding to an MCP Client
 
-To integrate this sovereign proxy into your favorite AI agent, use the following configurations. **Note:** Since the proxy manages your real Bitwarden vault, ensuring it runs from the correct directory or with absolute paths is recommended.
+To integrate this sovereign proxy into your favorite AI agent, use the following configurations.
 
-#### Claude Desktop (macOS/Linux)
-Add this to your `claude_desktop_config.json`:
+#### 1. Recommended (Global Installation)
+If you installed the proxy via `uv tool install bw-blind-proxy`, the configuration is extremely simple:
+
+**Claude Desktop (`claude_desktop_config.json`):**
+```json
+{
+  "mcpServers": {
+    "bw-blind-proxy": {
+      "command": "bw-blind-proxy",
+      "args": []
+    }
+  }
+}
+```
+
+**Cursor / Other IDEs:**
+Register a new MCP server with:
+- **Type:** `command`
+- **Command:** `bw-blind-proxy`
+
+#### 2. Local Development (Fallthrough)
+If you are running from the source code without global installation:
+
+**Claude Desktop:**
 ```json
 {
   "mcpServers": {
@@ -696,11 +722,6 @@ Add this to your `claude_desktop_config.json`:
   }
 }
 ```
-
-#### Cursor / Other IDEs
-Register a new MCP server with:
-- **Type:** `command`
-- **Command:** `uv --directory /absolute/path/to/bw-blind-proxy run bw-blind-proxy`
 
 #### Environment Variables
 The server expects `BW_PASSWORD_ENV` (or similar) to be available if you want to bypass manual prompt during certain non-interactive sessions, but by default, **it will use Zenity to prompt you for the Master Password on your screen.**

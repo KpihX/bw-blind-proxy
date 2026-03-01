@@ -4,6 +4,7 @@
 **Status:** Production-Ready. 58/58 tests pass. Full security audit complete.
 **Duration:** ~24h of intensive pair-programming (2026-02-28 to 2026-03-01).
 **Stack:** Python 3.12+ · `mcp` SDK · Pydantic v2 · Fernet/PBKDF2 · Typer/Rich · Zenity
+**Distribution:** PyPI (`uv tool install bw-blind-proxy`)
 
 ---
 
