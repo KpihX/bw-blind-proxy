@@ -250,33 +250,44 @@ class TransactionManager:
     @staticmethod
     def _resolve_action_names(operations: List[VaultTransactionAction], session_key: bytearray) -> Dict[str, str]:
         """
-        Connects to Bitwarden to resolve UUIDs into human-readable names for UI display.
+        Connects to Bitwarden to resolve UUIDs into human-readable names for UI display,
+        and proactively VALIDATES that the UUID points to the correct entity type before any
+        operations execute or WALs are created.
         """
-        uuids_to_resolve = set()
-        for op in operations:
-            if getattr(op, "target_id", None): uuids_to_resolve.add(op.target_id)
-            if getattr(op, "folder_id", None): uuids_to_resolve.add(op.folder_id)
-            if getattr(op, "organization_id", None): uuids_to_resolve.add(op.organization_id)
-            
         id_to_name = {}
-        for uid in uuids_to_resolve:
-            if not uid: continue
+        
+        def resolve_and_validate(uid: str, expected_type: str):
+            if not uid or uid in id_to_name:
+                return
             try:
-                item = SecureSubprocessWrapper.execute_json(["get", "item", uid], session_key)
-                id_to_name[uid] = item.get("name", uid)
-                continue
-            except Exception: pass
+                # expected_type must be "item", "folder", or "organization"
+                entity = SecureSubprocessWrapper.execute_json(["get", expected_type, uid], session_key)
+                id_to_name[uid] = entity.get("name", uid)
+            except Exception as e:
+                # Intercept the hallucination securely, so the error bubbles up cleanly to the LLM
+                raise SecureBWError(f"Validation Error: Target '{uid}' is not a valid '{expected_type}' or does not exist. "
+                                    f"Ensure you are using the correct action for this entity type. "
+                                    f"Original error from CLI: {_safe_error_message(e)}")
+
+        for op in operations:
+            action_type = type(op.action)
             
-            try:
-                folder = SecureSubprocessWrapper.execute_json(["get", "folder", uid], session_key)
-                id_to_name[uid] = folder.get("name", uid)
-                continue
-            except Exception: pass
+            # 1. Validate target_id (the main entity being manipulated)
+            if getattr(op, "target_id", None):
+                if action_type in (ItemAction, EditAction):
+                    resolve_and_validate(op.target_id, "item")
+                elif action_type is FolderAction:
+                    if op.action != FolderAction.CREATE:  # Special case: create folder has no target_id yet
+                        resolve_and_validate(op.target_id, "folder")
+            
+            # 2. Validate folder_id (where items are moved or created)
+            if getattr(op, "folder_id", None):
+                resolve_and_validate(op.folder_id, "folder")
                 
-            try:
-                org = SecureSubprocessWrapper.execute_json(["get", "organization", uid], session_key)
-                id_to_name[uid] = org.get("name", uid)
-            except Exception: pass
+            # 3. Validate organization_id (for collections and org creations)
+            if getattr(op, "organization_id", None):
+                resolve_and_validate(op.organization_id, "organization")
+
         return id_to_name
 
     @staticmethod

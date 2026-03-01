@@ -186,6 +186,7 @@ def propose_vault_transaction(rationale: str, operations: List[Dict[str, Any]]) 
              WARNING: Destructive & UNRECOVERABLE. MUST be the ONLY operation in the batch.
           
           [FOLDER ACTIONS]
+          Note: Bitwarden folders are flat. They act like mutually exclusive tags (an item can only be in one folder). You CANNOT place a folder inside another folder. Therefore, folders cannot be "moved" or "restored" from trash, only created, renamed, or deleted.
           9.  "create_folder" -> Requires: name (str)
           10. "rename_folder" -> Requires: target_id (str), new_name (str)
           11. "delete_folder" -> Requires: target_id (str).
