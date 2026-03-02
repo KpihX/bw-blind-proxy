@@ -45,7 +45,7 @@ class HITLManager:
         def resolve(uuid: str, prefix: str = "") -> str:
             if not uuid: return "ROOT"
             name = (id_to_name or {}).get(uuid)
-            if name: return f"'{html.escape(name)}'"
+            if name: return f"'{html.escape(name)}' ({uuid})"
             return f"{prefix}({uuid})"
 
         def dict_to_str(d: dict) -> str:

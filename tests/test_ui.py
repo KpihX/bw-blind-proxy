@@ -19,10 +19,10 @@ def test_ui_format_operations():
     
     id_map = {"1": "Item A", "4": "Bad Folder"}
     
-    assert "✏️ RENAME ITEM 'Item A' -> 'A'" in HITLManager._format_operation(op_rename, id_map)
+    assert "✏️ RENAME ITEM 'Item A' (1) ->" in HITLManager._format_operation(op_rename, id_map)
     assert "♻️ RESTORE ITEM (2) -> From Trash" in HITLManager._format_operation(op_restore, id_map)
     assert "🏷️ UPSERT FIELD (3) -> [Text] 'API Key' = 'sk_123'" in HITLManager._format_operation(op_field, id_map)
-    assert "💥 DELETE FOLDER 'Bad Folder'" in HITLManager._format_operation(op_del, id_map)
+    assert "💥 DELETE FOLDER 'Bad Folder' (4)" in HITLManager._format_operation(op_del, id_map)
     assert "🔧 EDIT LOGIN (5) -> username='user@foo.com'" in HITLManager._format_operation(op_login, id_map)
 
 from unittest.mock import patch, MagicMock
@@ -86,6 +86,6 @@ def test_ui_escaping_special_characters():
         # Check rationale
         assert "Organizing Perso &amp; Social" in text_arg
         # Check item name (resolved via id_to_name)
-        assert "'Me &amp; You'" in text_arg
+        assert "'Me &amp; You' (1)" in text_arg
         # Check new name
         assert "A &amp; B &lt; C &gt; D" in text_arg

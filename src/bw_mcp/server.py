@@ -10,7 +10,6 @@ from .transaction import TransactionManager
 from .logger import TransactionLogger
 from .wal import WALManager
 from .ui import HITLManager
-from .ui import HITLManager
 from .scrubber import deep_scrub_payload
 
 # Load configuration (cached automatically)
@@ -261,7 +260,7 @@ def _fetch_template(template_type: str) -> str:
         valid_types = [e.value for e in TemplateType]
         return f"Error: Invalid template type '{template_type}'. Must be one of: {', '.join(valid_types)}"
 
-    master_password = HITLManager.get_master_password(f"Enter Master Password to fetch {valid_type.value} schema")
+    master_password = HITLManager.ask_master_password(title=f"Enter Master Password to fetch {valid_type.value} schema")
     if not master_password:
         return "Error: User cancelled authentication. Cannot fetch template."
 
