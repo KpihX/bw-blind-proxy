@@ -63,7 +63,7 @@ OUR GUARD: Pydantic rejects ANY batch containing delete_attachment alongside
 
 
 The transparency of this proxy is its greatest strength. Follow the **[Visual Simulation Path](docs/01_simulation_core_protocol.md)** to see every byte in motion.
-- [CHANGELOG.md](CHANGELOG.md): The historical evolution from v1.0.0 (Foundation) to v1.4.2 (CLI Configuration Management).
+- [CHANGELOG.md](CHANGELOG.md): The historical evolution from v1.0.0 (Foundation) to v1.4.3 (Structured CLI Configuration).
 
 ### 🎥 The Zero-Trust Interactive Path
 If you want to understand the codebase, read the documentation in this specific order:
@@ -717,9 +717,17 @@ uv run bw-proxy wal view
 # Delete the Write-Ahead Log to force-clear stranded transactions (Requires Master Password)
 uv run bw-proxy wal delete
 
-# View or update proxy configuration (e.g., adjust batch size)
-uv run bw-proxy config
-uv run bw-proxy config --max-batch-size 15
+# View full configuration
+uv run bw-proxy config get
+
+# Get specific config value (Batch size)
+uv run bw-proxy config get --max-batch-size
+
+# Update specific config value
+uv run bw-proxy config update --max-batch-size 15
+
+# Check version
+uv run bw-proxy --version
 ```
 
 ### ⚙️ Daemon Lifecycle CLI (`bw-mcp`)
@@ -796,7 +804,7 @@ If you use the `gemini-cli`, you can integrate `bw-mcp` natively to give your ag
 ```json
 {
   "name": "bw-mcp",
-  "version": "1.4.2",
+  "version": "1.4.3",
   "description": "Sovereign IA-Blind Proxy for Bitwarden",
   "mcpServers": {
     "bw-mcp": {
@@ -826,7 +834,7 @@ gemini extensions install .
 ```json
 {
   "name": "bw-mcp",
-  "version": "1.4.2",
+  "version": "1.4.3",
   "description": "Sovereign IA-Blind Proxy for Bitwarden",
   "mcpServers": {
     "bw-mcp": {

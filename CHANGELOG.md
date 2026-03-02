@@ -2,6 +2,13 @@
 
 All notable changes to this project, from its inception to the current secure state.
 
+## [v1.4.3] - 2026-03-02: Structured CLI Configuration & Versioning
+### ⚙️ Proxy Control
+- **Refactored Config CLI**: Split `bw-proxy config` into explicit `get` and `update` subcommands for a more standard CLI experience.
+- **Config Get**: Added `bw-proxy config get` to view the full YAML-derived JSON, or `bw-proxy config get -m` to strictly fetch the current batch limit.
+- **Config Update**: Added `bw-proxy config update -m <N>` to programmatically tune the proxy.
+- **Native Versioning**: Added `--version` flag to the `bw-proxy` CLI to match the behavior of `bw-mcp version`.
+
 ## [v1.4.2] - 2026-03-02: CLI Configuration Management
 ### ⚙️ Proxy Control
 - **Dynamic Configuration**: Introduced `bw-proxy config` command to view and programmatically update the proxy's `config.yaml` from the CLI.

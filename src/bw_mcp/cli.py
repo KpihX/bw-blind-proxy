@@ -10,7 +10,9 @@ from .wal import WALManager
 from .models import TransactionStatus
 from .scrubber import deep_scrub_payload
 from .subprocess_wrapper import SecureProxyError
+from typing import Optional
 from .config import load_config, update_config
+from importlib.metadata import version as pkg_version
 
 app = typer.Typer(help="BW-MCP Management & Audit CLI")
 log_app = typer.Typer(help="Manage and view transaction logs")
@@ -170,11 +172,27 @@ def wal_delete():
     else:
         console.print("[green]Success: WAL is already clean. Nothing to delete.[/green]")
 
-@app.command("config")
-def config_cmd(
+config_app = typer.Typer(help="View or update proxy configuration")
+app.add_typer(config_app, name="config")
+
+@config_app.command("get")
+def config_get(
+    max_batch_size: bool = typer.Option(False, "-m", "--max-batch-size", help="Get only the MAX_BATCH_SIZE value.")
+):
+    """View current proxy configuration."""
+    conf = load_config()
+    if max_batch_size:
+        val = conf.get("proxy", {}).get("max_batch_size", 25)
+        console.print(f"[cyan]Current MAX_BATCH_SIZE:[/cyan] [bold]{val}[/bold]")
+    else:
+        console.print("[cyan bold]Current BW-MCP Configuration:[/cyan bold]")
+        console.print(JSON(json.dumps(conf)))
+
+@config_app.command("update")
+def config_update(
     max_batch_size: int = typer.Option(None, "-m", "--max-batch-size", help="Set the maximum number of operations allowed in a single transaction batch.")
 ):
-    """View or update proxy configuration."""
+    """Update proxy configuration."""
     if max_batch_size is not None:
         if max_batch_size < 1:
             console.print("[red]Error: max-batch-size must be a positive integer (>= 1).[/red]")
@@ -183,11 +201,19 @@ def config_cmd(
         update_config({"proxy": {"max_batch_size": max_batch_size}})
         console.print(f"[green]Success: Configuration updated. MAX_BATCH_SIZE is now {max_batch_size}.[/green]")
     else:
-        # View mode
-        conf = load_config()
-        console.print("[cyan bold]Current BW-MCP Configuration:[/cyan bold]")
-        # Hide internal paths for cleaner output if desired, but here we show everything
-        console.print(JSON(json.dumps(conf)))
+        console.print("[yellow]Notice: No parameters provided to update. Use --help to see options.[/yellow]")
+
+def version_callback(value: bool):
+    if value:
+        v = pkg_version("bw-mcp")
+        console.print(f"bw-proxy version: [bold]{v}[/bold]")
+        raise typer.Exit()
+
+@app.callback()
+def main_callback(
+    version: Optional[bool] = typer.Option(None, "--version", callback=version_callback, is_eager=True, help="Show version and exit.")
+):
+    pass
 
 if __name__ == "__main__":
     app()
