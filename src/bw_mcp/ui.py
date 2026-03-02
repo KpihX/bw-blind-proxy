@@ -40,6 +40,7 @@ class HITLManager:
     def _format_operation(op: Any, id_to_name: Dict[str, str] = None) -> str:
         """Helper to format a specific polymorphic operation for human readability."""
         from .models import ItemAction, FolderAction, EditAction
+        from .config import REDACTED_POPULATED, REDACTED_EMPTY
         
         def resolve(uuid: str, prefix: str = "") -> str:
             if not uuid: return "ROOT"
@@ -52,7 +53,7 @@ class HITLManager:
             for k, v in d.items():
                 if v is None or v == "": continue
                 # Do not show proxy redacted tags in the UI
-                if isinstance(v, str) and "[REDACTED" in v: continue
+                if isinstance(v, str) and (REDACTED_POPULATED in v or REDACTED_EMPTY in v): continue
                 
                 if isinstance(v, list):
                     if not v: continue
