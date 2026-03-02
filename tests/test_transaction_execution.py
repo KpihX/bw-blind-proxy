@@ -112,7 +112,9 @@ def test_transaction_rollback_lifo(mock_exec_json, mock_exec, mock_unlock, mock_
     }
     
     def fake_execute_json(args, session_key):
-        if args[:2] == ["get", "item"]: return {"id": "item1", "name": "Original"}
+        if args[:2] == ["get", "item"]: 
+            uid = args[2]
+            return {"id": uid, "name": f"Item_{uid}", "card": {"brand": "visa"}, "fields": [], "reprompt": 0}
         if args[:2] == ["get", "folder"]: return {"id": "f1", "name": "F1"}
         if args[:2] == ["get", "template"]: return {"id": "f_tpl"}
         raise SecureBWError(f"Not found: {args}")
@@ -147,5 +149,6 @@ def test_transaction_rollback_lifo(mock_exec_json, mock_exec, mock_unlock, mock_
 
     # Rollback #1 (Undo rename item1) — bw edit with original JSON base64-encoded
     import base64
-    expected_b64 = base64.b64encode(json.dumps({"id": "item1", "name": "Original"}).encode()).decode()
+    expected_data = {"id": "item1", "name": "Item_item1", "card": {"brand": "visa"}, "fields": [], "reprompt": 0}
+    expected_b64 = base64.b64encode(json.dumps(expected_data).encode()).decode()
     assert calls[4] == ["edit", "item", "item1", expected_b64]

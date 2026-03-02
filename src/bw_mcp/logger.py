@@ -43,8 +43,6 @@ class TransactionLogger:
         timestamp_str = now.strftime("%Y-%m-%d_%H-%M-%S")
         status_safe = status.replace(" ", "_").lower()
         
-        import json
-        
         filename = f"{timestamp_str}_{transaction_id}_{status_safe}.json"
         filepath = os.path.join(LOG_DIR, filename)
         

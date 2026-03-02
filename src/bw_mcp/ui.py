@@ -158,8 +158,9 @@ class HITLManager:
             for i, op in enumerate(payload.operations, 1)
         )
         
-        # Check for destructive operations
-        has_destructive = any(op.action in ["delete_item", "delete_folder"] for op in payload.operations)
+        from .models import ItemAction, FolderAction
+        # Check for destructive operations using Enums instead of hardcoded strings
+        has_destructive = any(op.action in [ItemAction.DELETE, ItemAction.DELETE_ATTACHMENT, FolderAction.DELETE] for op in payload.operations)
         
         if has_destructive:
             # dialog_type is always --question for Yes/No semantics.

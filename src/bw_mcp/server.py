@@ -63,13 +63,19 @@ def get_vault_map(
             return f"Access Denied or Recovery Failed: {_safe_error_message(e)}"
             
         items_base_args = ["list", "items"]
-        if search_items: items_base_args.extend(["--search", search_items])
+        if search_items: 
+            # DoS Prevention: Limit search string length
+            search_items = search_items[:256]
+            items_base_args.extend(["--search", search_items])
         if folder_id: items_base_args.extend(["--folderid", folder_id])
         if collection_id: items_base_args.extend(["--collectionid", collection_id])
         if organization_id: items_base_args.extend(["--organizationid", organization_id])
         
         folders_base_args = ["list", "folders"]
-        if search_folders: folders_base_args.extend(["--search", search_folders])
+        if search_folders:
+            # DoS Prevention: Limit search string length
+            search_folders = search_folders[:256]
+            folders_base_args.extend(["--search", search_folders])
         
         folders = []
         items = []
@@ -123,7 +129,6 @@ def get_vault_map(
         }
         
         # For simplicity in MCP text context
-        import json
         return json.dumps(result, indent=2)
         
     except SecureBWError as e:

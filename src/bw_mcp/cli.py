@@ -137,9 +137,10 @@ def wal_view():
         except ValueError as e:
             console.print(f"[red]Error: Decryption Failed. Incorrect Master Password or corrupted WAL.[/red]")
         finally:
-            for i in range(len(master_password)):
-                master_password[i] = 0
-            del master_password
+            if 'master_password' in locals():
+                for i in range(len(master_password)):
+                    master_password[i] = 0
+                del master_password
     else:
         console.print("[green]Success: WAL is clean. No stranded transactions. Vault is perfectly synced.[/green]")
 
@@ -166,9 +167,10 @@ def wal_delete():
         except ValueError as e:
             console.print(f"[red]Error: Authorization Failed. Incorrect Master Password.[/red]")
         finally:
-            for i in range(len(master_password)):
-                master_password[i] = 0
-            del master_password
+            if 'master_password' in locals():
+                for i in range(len(master_password)):
+                    master_password[i] = 0
+                del master_password
     else:
         console.print("[green]Success: WAL is already clean. Nothing to delete.[/green]")
 

@@ -3,7 +3,7 @@ import os
 import json
 import re
 import sys
-from typing import List, Optional
+from typing import List, Optional, Union
 from mcp.shared.exceptions import McpError
 from .config import load_config, PAYLOAD_TAG, BW_PASSWORD_ENV, BW_SESSION_ENV
 
@@ -232,8 +232,8 @@ class SecureSubprocessWrapper:
 
     @staticmethod
     def audit_compare_secrets(
-        item_id_a: str, field_a: str, name_a: str | None,
-        item_id_b: str, field_b: str, name_b: str | None,
+        item_id_a: str, field_a: Union[str, 'SecretFieldTarget'], name_a: str | None,
+        item_id_b: str, field_b: Union[str, 'SecretFieldTarget'], name_b: str | None,
         session_key: bytearray
     ) -> bool:
         """
@@ -242,6 +242,15 @@ class SecureSubprocessWrapper:
         the secrets into the main proxy's memory space.
         Returns True if they match exactly.
         """
+        # SECURITY: Defense-in-depth: Ensure field_a/b are within the allowed enum set
+        # (Import inside to avoid circular dependencies)
+        from .models import SecretFieldTarget
+        for f, label in [(field_a, "field_a"), (field_b, "field_b")]:
+            if isinstance(f, SecretFieldTarget):
+                continue
+            if f not in [e.value for e in SecretFieldTarget]:
+                raise SecureBWError(f"Invalid field target for {label}: '{f}'. Operation rejected for security.")
+
         # SECURITY: Validate UUIDs before passing to subprocess to prevent
         # malformed inputs from reaching the Bitwarden CLI.
         for uid, label in [(item_id_a, "item_id_a"), (item_id_b, "item_id_b")]:

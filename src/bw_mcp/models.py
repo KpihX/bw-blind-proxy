@@ -1,7 +1,7 @@
 from enum import StrEnum
-from typing import List, Optional, Any, Dict, Literal, Union, Annotated
+from typing import List, Optional, Any, Dict, Literal, Union, Annotated, Callable, Tuple
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-from bw_mcp.config import REDACTED_POPULATED, REDACTED_EMPTY, MAX_BATCH_SIZE
+from .config import load_config, REDACTED_POPULATED, REDACTED_EMPTY, MAX_BATCH_SIZE
 
 # -----------------
 # ACTION ENUMERATIONS (CENTRALIZATION)
@@ -300,6 +300,7 @@ class MoveToCollectionAction(BaseAction):
     action: Literal[ItemAction.MOVE_TO_COLLECTION] = ItemAction.MOVE_TO_COLLECTION
     target_id: str
     organization_id: str
+    collection_ids: List[str] = Field(default_factory=list, description="Array of collection target IDs in the organization.")
 
 class ToggleRepromptAction(BaseAction):
     action: Literal[ItemAction.TOGGLE_REPROMPT] = ItemAction.TOGGLE_REPROMPT

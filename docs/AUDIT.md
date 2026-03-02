@@ -1,9 +1,9 @@
 # 🔒 BW-MCP — Full Security Audit Report
 
-> **Date:** 2026-03-01  
-> **Auditor:** Automated Deep-Scan (4-pass systematic review)  
+> **Date:** 2026-03-02  
+> **Auditor:** Automated Deep-Scan (5-pass systematic review)  
 > **Scope:** All source files in `src/bw_mcp/`, all CLI commands, all LLM-facing tool outputs, all disk I/O, all RAM lifecycle.  
-> **Verdict:** ✅ **ZERO exploitable vulnerabilities identified.** 56/56 tests pass.
+> **Verdict:** ✅ **ZERO exploitable vulnerabilities identified.** 81/81 tests pass.
 
 ---
 
@@ -30,6 +30,7 @@ The audit was conducted in 4 progressive passes, each deeper than the last:
 | **Pass 2** | Medium: Subprocess env leakage, log content, CLI display                  | `subprocess_wrapper.py`, `cli.py`, `logger.py` | 3 findings     |
 | **Pass 3** | Low: WAL file permissions, scrubber key completeness, Pydantic strictness | `wal.py`, `scrubber.py`, `models.py`           | 2 findings     |
 | **Pass 4** | Verification: Re-scan all `str(e)`, all LLM return paths, all disk writes | All files                                      | 0 new findings |
+| **Pass 5** | Robustness: Audit `bw move` syntax, DoS vectors, and Enum-level UI safety | `transaction.py`, `server.py`, `ui.py`         | 4 findings     |
 
 ---
 
@@ -143,6 +144,10 @@ File format: [16-byte salt][ciphertext]
 Permissions: chmod 600
 ```
 
+### Layer 7: Network & Input Throttling (`server.py`)
+- **DoS Protection**: Every search/filter string received by the proxy is strictly truncated to **256 characters**.
+- **Defense-in-Depth Validation**: `audit_compare_secrets` validates input against `SecretFieldTarget` before execution, preventing malformed field paths from triggering unexpected CLI behavior.
+
 ---
 
 ## 3. Exposure Surface Analysis
@@ -245,6 +250,16 @@ Every `str(e)` occurrence in the codebase was manually classified:
 | L2   | WAL file had default filesystem permissions (potentially world-readable)                                             | `wal.py`          | Set `chmod 600` after each write                  |
 | L3   | 3 remaining `str(e)` in CLI displayed raw exception messages to human terminal                                       | `cli.py:63,65,92` | Replaced with type-only messages or fixed strings |
 
+### v1.7.0 Audit: Security & Robustness (Fixed)
+
+| #    | Vulnerability                                                                                              | File                     | Fix Applied                                                                              |
+| :--- | :--------------------------------------------------------------------------------------------------------- | :----------------------- | :--------------------------------------------------------------------------------------- |
+| S1   | DoS Vector: Unbounded search strings could cause memory exhaustion or high CLI load                        | `server.py:63,141`       | Implemented 256-character truncation for `search_items` and `search_folders`.            |
+| S2   | Fragile UI Logic: Destructive action detection used hardcoded strings, prone to refactors                  | `ui.py:162`              | Refactored to use `ItemAction.DELETE` and `FolderAction.DELETE` Enums for danger alerts. |
+| S3   | Incomplete Error Clean-up: `master_password` in `cli.py` could trigger ReferenceError on failed decryption | `cli.py:140,169`         | Added `if 'master_password' in locals()` to ensure safe cleaning in `finally` blocks.    |
+| B1   | `bw move` Syntax: Command failed due to missing encoded JSON for organization collections                  | `transaction.py:405`     | Implemented Base64 JSON-array encoding for `collection_ids` argument.                    |
+| B2   | Shadowing/Scoping: `import base64` inside closure caused `NameError` during rollback                       | `transaction.py:314,403` | Removed redundant local imports and moved all dependencies to module scope.              |
+
 ---
 
 ## 6. Cryptographic Architecture Review
@@ -325,7 +340,7 @@ The 480,000 iteration count transforms a 6-hour attack into a multi-century one.
 │  Secrets displayable to terminal:            0           │
 │  Injection vectors (command/path):           0           │
 │  Pydantic models without extra="forbid":     0 (writes)  │
-│  Tests passing:                              56/56       │
+│  Tests passing:                              81/81       │
 │                                                          │
 │  OVERALL STATUS:  ✅ PRODUCTION READY                    │
 └──────────────────────────────────────────────────────────┘

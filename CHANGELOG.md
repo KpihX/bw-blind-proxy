@@ -1,6 +1,22 @@
 # CHANGELOG: The Sovereign Journey of BW-MCP 🛡️
 
 All notable changes to this project, from its inception to the current secure state.
+## [v1.7.0] - 2026-03-02: Security Hardening & Robustness Audit
+### 🔒 Security
+- **DoS Prevention (Search Truncation)**: Implemented strict 256-character truncation for all search strings (`search_items`, `search_folders`) in `get_vault_map`. Prevents Memory/CPU exhaustion from malicious LLM-generated payloads.
+- **Defense-in-Depth Audit Validation**: `audit_compare_secrets` now performs a secondary, internal validation of `SecretFieldTarget` before subprocess dispatch, ensuring malformed or smuggled field paths cannot be compared.
+- **Enum-based Destructive Logic**: Refactored the UI (`ui.py`) to use `ItemAction` and `FolderAction` enums instead of hardcoded strings to determine "Danger" alerts, making the prompt logic robust to future action refactorings.
+- **CLI Memory Cleaning**: Hardened the cleanup of `master_password` and `session_key` references in `cli.py` and `server.py` using `if 'var' in locals()` checks in `finally` blocks to prevent rare ReferenceErrors during cleanup.
+
+### 🐛 Bug Fixes
+- **`MoveToCollection` Syntax Fix**: Corrected the `bw move` command implementation. It now properly supports organization binding and multiple collection IDs via JSON-encoded payload, aligned with Bitwarden CLI v2024+.
+- **Rollback NameError Patch**: Fixed a scoping bug in `transaction.py` where a local `import base64` inside a closure caused a `NameError` during LIFO rollback execution. Externalized all imports to the module level.
+- **Import Hygiene**: Removed redundant `import json` calls across `server.py`, `logger.py`, and `transaction.py`.
+
+### 🧪 Test Coverage
+- **New Audit Test Suite**: Added `tests/test_audit_updates.py` covering DoS protection, `MoveToCollection` syntax, and polymorphic `ItemAction.CREATE` variants (Login, Card, Identity).
+- **Coverage Bump**: Global test coverage increased to **69%**, with core logic reaching **75%+**.
+
 ## [v1.6.1] - 2026-03-02: Critical Security Patch (Secret Context Scrubbing)
 ### 🔒 Security
 - **Patched Early-Exit Secret Leak**: Fixed a catastrophic memory leak in `execute_batch` and `get_vault_map` where an early exception (e.g., incorrect Master Password, or Zenity abort) would bypass the `finally` block preventing the memory-scrubbing loop (`for i in range(len(session_key)): session_key[i] = 0`). The entire logic was refactored into a unified master `try...finally` block.

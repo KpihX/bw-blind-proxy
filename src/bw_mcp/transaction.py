@@ -5,7 +5,7 @@ import base64
 from typing import List, Dict, Any, Callable, Tuple, Optional
 from .models import (
     TransactionPayload, VaultTransactionAction, ItemAction, 
-    FolderAction, EditAction, TransactionStatus
+    FolderAction, EditAction, TransactionStatus, SecretFieldTarget
 )
 from .subprocess_wrapper import SecureSubprocessWrapper, SecureBWError, _sanitize_args_for_log, _safe_error_message
 from .ui import HITLManager
@@ -396,10 +396,17 @@ class TransactionManager:
 
         elif op.action == ItemAction.MOVE_TO_COLLECTION:
             original_item_data = SecureSubprocessWrapper.execute_json(["get", "item", op.target_id], session_key)
-            SecureSubprocessWrapper.execute(["move", op.target_id, op.organization_id], session_key)
+            
+            # Encoded JSON for collection IDs
+            encoded_cols = ""
+            if op.collection_ids:
+                encoded_cols = base64.b64encode(json.dumps(op.collection_ids).encode()).decode()
+            
+            SecureSubprocessWrapper.execute(["move", op.target_id, op.organization_id, encoded_cols], session_key)
+            
             orig_b64 = base64.b64encode(json.dumps(original_item_data).encode()).decode()
             rollback_cmds = [{"cmd": ["bw", "edit", "item", op.target_id, orig_b64]}]
-            return f"-> Moved item {op.target_id} to Organization {op.organization_id}", rollback_cmds
+            return f"-> Moved item {op.target_id} to Organization {op.organization_id} (Collections: {op.collection_ids or 'None'})", rollback_cmds
 
         elif op.action == ItemAction.TOGGLE_REPROMPT:
             def u(data): data["reprompt"] = 1 if op.reprompt else 0

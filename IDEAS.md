@@ -8,7 +8,7 @@ This document tracks architectural enhancements, protocol-specific optimizations
     *   **Dynamic Resources**: `bw://status` (health, limits), `bw://audit/recent` (execution traces).
     *   **Standard Prompts**: `/wal-clean` (guided recovery), `/hygiene` (system maintenance).
 
-- [ ] **Blind Secret Comparator**: Allow the LLM to compare secret fields between two vault items without ever exposing their values.
-    *   **Mechanism**: A `compare_secret_fields(item_id_a, field_a, item_id_b, field_b)` tool fetches both secret values internally (server-side, via `bw get item`), computes a comparison (equality or hash-based), wipes both values from memory (`bytearray` zeroing), and returns only a boolean result (`true` / `false`) to the agent.
-    *   **Use Cases**: Detect duplicate passwords across accounts, verify that two identity items share the same SSN (data quality audit), confirm a migrated item has the same credential as its source without revealing it.
-    *   **Security Guarantee**: The secret values never leave the proxy process — the LLM receives only `"MATCH"` or `"MISMATCH"`, making this a Zero-Trust-compliant audit primitive.
+- [x] **Blind Secret Comparator** (Implemented in v1.7.0)
+- [ ] **Organization Collection Browser**: Add a specific tool to list/manage organizational collections as first-class citizens, improving Enterprise vault organization speed.
+- [ ] **Auto-Cleanup Daemon**: A background task that automatically purges logs older than X days or alerts the user if a WAL orphan persists for more than 24 hours.
+- [ ] **Interactive WAL Recovery Prompt**: A rich MCP Prompt (`/recover`) that guides the LLM through a failed transaction recovery by providing the exact step that failed and offering options to retry or force-delete the WAL.
