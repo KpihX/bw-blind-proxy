@@ -57,10 +57,7 @@ class HITLManager:
                 
                 if isinstance(v, list):
                     if not v: continue
-                    if all(isinstance(x, dict) and "uri" in x for x in v):
-                        val = f"[{', '.join(html.escape(str(x.get('uri', ''))) for x in v)}]"
-                    else:
-                        val = f"[{len(v)} items]"
+                    val = f"'{html.escape(str(v))}'"
                 else:
                     val = f"'{html.escape(str(v))}'"
                 items.append(f"{k}={val}")
@@ -122,8 +119,7 @@ class HITLManager:
             if getattr(op, "username", None) is not None: 
                 changes.append(f"username='{html.escape(op.username)}'")
             if getattr(op, "uris", None) is not None:
-                uri_strs = [html.escape(u.get("uri", "")) for u in op.uris if isinstance(u, dict)]
-                changes.append(f"uris=[{', '.join(uri_strs)}]")
+                changes.append(f"uris='{html.escape(str(op.uris))}'")
             return f"🔧 EDIT LOGIN {resolve(op.target_id)} -> {', '.join(changes) if changes else 'No changes'}"
             
         elif op.action == EditAction.CARD:
