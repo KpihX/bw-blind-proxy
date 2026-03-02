@@ -536,10 +536,36 @@ Error: Invalid transaction payload. ValidationError: An internal error occurred.
 
 The proxy maps Bitwarden's complex CLI into 16 robust, completely secure internal Enums.
 
-### 🧠 AI Contextualization (Templates)
-Before manipulating data, the AI or the Human can fetch the exact, strict JSON schemas of Bitwarden entities. This prevents hallucinated fields and ensures migrations perfectly match the `bw` CLI expectations.
-- **`get_bitwarden_template(template_type)` Tool**: A native MCP tool allowing the autonomous agent to securely fetch the JSON schema of entities (e.g., `item.login`, `item.card`, `folder`). Secrets are proactively scrubbed *before* reaching the LLM context.
-- **`bw://templates/{template_type}` Resources**: Native MCP resources exposed to the host application. A human operator can inject clean Bitwarden schemas directly into the prompt without requiring a tool execution round-trip (e.g., typing `@bw://templates/item.login` in Cursor).
+### 🧠 AI Contextualization (Self-Documenting Templates)
+Before proposing data mutations, the AI (or the Human) can dynamically fetch the exact, strict JSON schemas of Bitwarden entities. This system completely eliminates hallucinated fields and ensures migrations perfectly match the underlying `bw` CLI expectations.
+
+- **`get_template(template_type)` Tool**: A native MCP tool allowing the autonomous agent to securely fetch the JSON schema of entities (e.g., `item.login`, `item.card`, `folder`).
+- **`template_resource` (URI: `bw://templates/{template_type}`)**: Native MCP resources exposed natively to the host app. An operator can inject clean schemas directly without requiring an AI tool-execution round-trip (e.g., typing `@bw://templates/item.login` in Cursor).
+
+**Illustration (Transparency & Strict Scrubbing):**
+When a template is requested, the proxy forces a `bw get template ...`, intercepts the JSON, and strictly purges any keys where secrets might reside *before* returning it to the LLM. The AI only sees a perfectly safe skeleton.
+```json
+{
+  "_metadata": {
+    "source": "bw get template item.login",
+    "note": "Secret fields have been proactively redacted by BW-MCP to maintain AI-Blindness. Empty fields remain empty."
+  },
+  "template": {
+    "passwordHistory": [],
+    "type": 1,
+    "name": "Item name",
+    "notes": "[REDACTED_BY_PROXY_EMPTY]",
+    "login": {
+      "username": "",
+      "password": "[REDACTED_BY_PROXY_EMPTY]",
+      "totp": "[REDACTED_BY_PROXY_EMPTY]",
+      "uris": [
+        { "match": null, "uri": "https://google.com" }
+      ]
+    }
+  }
+}
+```
 
 ### Item Organization (`ItemAction`)
 1.  **`create_item`**: Spawns an empty shell (Login, Note, Card, Identity) locally. Strictly blocks LLM from creating secrets safely.

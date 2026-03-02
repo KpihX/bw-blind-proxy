@@ -251,8 +251,10 @@ def inspect_transaction_log(tx_id: str = None, n: int = None) -> str:
     except Exception as e:
         return f"Unexpected Error reading log: {_safe_error_message(e)}"
 
-def _fetch_bw_template(template_type: str) -> str:
-    # Ensure it's a valid enum value if passed as generic string from a Resource URI
+def _fetch_template(template_type: str) -> str:
+    """
+    Fetches the JSON schema for a specific Bitwarden template type.
+    """
     try:
         valid_type = TemplateType(template_type)
     except ValueError:
@@ -290,17 +292,17 @@ def _fetch_bw_template(template_type: str) -> str:
             del master_password
 
 @mcp.tool()
-def get_bitwarden_template(template_type: TemplateType) -> str:
+def get_template(template_type: TemplateType) -> str:
     """
     Retrieves the pure JSON schema template for a Bitwarden entity type.
     Crucial for autonomous agents needing to understand valid fields before creating/editing items.
     """
-    return _fetch_bw_template(template_type.value)
+    return _fetch_template(template_type.value)
 
 @mcp.resource("bw://templates/{template_type}")
 def template_resource(template_type: str) -> str:
     """Read a Bitwarden entity template schema (e.g. bw://templates/item.login)"""
-    return _fetch_bw_template(template_type)
+    return _fetch_template(template_type)
 
 def main():
     """Entry point for the script."""
